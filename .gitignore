@@ -221,3 +221,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Written by the local audit command in CONTRIBUTING.md
+requirements-audit.txt
