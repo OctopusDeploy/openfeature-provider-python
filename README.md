@@ -10,3 +10,5 @@ The project uses [uv](https://docs.astral.sh/uv/).
 uv sync
 uv run pytest
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the lint, format and type checks CI runs.

@@ -1,6 +1,8 @@
 from importlib import metadata
 from importlib.resources import files
 
+import openfeature.api
+
 import octopus_openfeature_provider
 
 
@@ -16,4 +18,4 @@ def test_package_ships_py_typed() -> None:
 
 def test_openfeature_sdk_is_installed() -> None:
     # Keeps the dependency honest until the provider imports it for real.
-    import openfeature.api  # noqa: F401
+    assert callable(openfeature.api.get_client)
