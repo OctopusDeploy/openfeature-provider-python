@@ -1,0 +1,56 @@
+name: CI build
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+  schedule:
+    # Daily 5am Australia/Brisbane time
+    - cron: "0 19 * * *"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-python:
+    name: test (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Every CPython version still maintained, from the requires-python floor
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Check uv.lock is up to date
+        run: uv lock --check
+
+      - name: Install
+        run: uv sync --locked
+
+      - name: Test
+        run: uv run pytest
+
+  # A single check to require on main, so its name doesn't change when the
+  # tested Python versions do
+  test:
+    if: always()
+    needs: test-python
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check every Python version passed
+        run: test "${{ needs.test-python.result }}" = "success"
