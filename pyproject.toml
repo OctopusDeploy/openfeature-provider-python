@@ -1,0 +1,32 @@
+[project]
+name = "octopus-openfeature-provider"
+version = "0.0.0"
+description = "The Octopus Deploy Python OpenFeature provider"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Octopus Deploy" }]
+requires-python = ">=3.11"
+dependencies = [
+    "openfeature-sdk>=0.10.0",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Repository = "https://github.com/OctopusDeploy/openfeature-provider-python"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.4,<0.14"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
