@@ -21,7 +21,9 @@ Repository = "https://github.com/OctopusDeploy/openfeature-provider-python"
 
 [dependency-groups]
 dev = [
+    "mypy>=2.4.1",
     "pytest>=9.2.0",
+    "ruff>=0.17.5",
 ]
 
 [build-system]
@@ -30,3 +32,51 @@ build-backend = "uv_build"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+# Rule set based on the OpenFeature Python SDK's
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "A",
+    "B",
+    "C4",
+    "C90",
+    "E",
+    "F",
+    "FLY",
+    "FURB",
+    "I",
+    "LOG",
+    "N",
+    "PERF",
+    "PGH",
+    "PLC",
+    "PLR0913",
+    "PLR0915",
+    "RUF",
+    "S",
+    "SIM",
+    "T10",
+    "T20",
+    "UP",
+    "W",
+    "YTT",
+]
+ignore = [
+    "E501", # The formatter handles line length
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = ["PLR0913", "S101"]
+
+[tool.ruff.lint.pylint]
+max-args = 6
+max-statements = 30
+
+[tool.mypy]
+files = ["src", "tests"]
+python_version = "3.11" # Matches the requires-python floor
+strict = true
+pretty = true
