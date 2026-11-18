@@ -7,6 +7,10 @@ module.exports = {
   // pep621 covers pyproject.toml and updates uv.lock alongside it
   enabledManagers: ['pep621', 'github-actions'],
 
+  lockFileMaintenance: {
+    enabled: true,
+  },
+
   packageRules: [
     {
       // The requires-python floor moves by hand with the CI matrix
@@ -19,16 +23,14 @@ module.exports = {
       rangeStrategy: 'update-lockfile',
     },
     {
-      // Dev and build tooling has no consumers, so keep its floor in step with uv.lock
-      matchDepTypes: ['dependency-groups', 'build-system.requires'],
+      // Dev tooling has no consumers, so keep its floor in step with uv.lock
+      matchDepTypes: ['dependency-groups'],
       rangeStrategy: 'bump',
     },
     {
-      // Lint, test and type-check tooling only; a green build is enough.
-      // build-system.requires stays on manual review because it builds the published package.
-      matchDepTypes: ['dependency-groups'],
-      matchUpdateTypes: ['minor', 'patch'],
-      automerge: true,
+      // Anyone building from the sdist installs the build backend, so keep its range wide.
+      matchDepTypes: ['build-system.requires'],
+      rangeStrategy: 'replace',
     },
     {
       // OpenFeature SDK updates are worth releasing as a minor version, even if not breaking
