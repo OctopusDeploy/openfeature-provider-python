@@ -106,6 +106,15 @@ def test_is_unaffected_by_later_configuration_changes() -> None:
     assert provider._configuration.client_identifier == "client-identifier"
 
 
+def test_keeps_a_server_url_set_by_a_test() -> None:
+    configuration = new_configuration()
+    configuration._server_url = "http://localhost:8080"
+
+    provider = OctopusFeatureProvider(configuration)
+
+    assert provider._configuration._server_url == "http://localhost:8080"
+
+
 def test_keeps_the_callers_http_client() -> None:
     with httpx.Client() as http_client:
         configuration = OctopusFeatureConfiguration(
@@ -135,4 +144,13 @@ def test_rejects_a_non_positive_duration(field: str, value: timedelta) -> None:
     setattr(configuration, field, value)
 
     with pytest.raises(ValueError, match=field):
+        OctopusFeatureProvider(configuration)
+
+
+@pytest.mark.parametrize("field", ["cache_duration", "request_timeout"])
+def test_rejects_a_duration_that_is_not_a_timedelta(field: str) -> None:
+    configuration = new_configuration()
+    setattr(configuration, field, 60)
+
+    with pytest.raises(TypeError, match=field):
         OctopusFeatureProvider(configuration)

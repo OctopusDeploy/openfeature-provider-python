@@ -21,6 +21,8 @@ class OctopusFeatureProvider(AbstractProvider):
     Raises:
         ValueError: If the configuration's client identifier is empty, or its
             `cache_duration` or `request_timeout` isn't positive.
+        TypeError: If `cache_duration` or `request_timeout` isn't a
+            `timedelta`.
     """
 
     def __init__(self, configuration: OctopusFeatureConfiguration) -> None:
@@ -89,11 +91,13 @@ class OctopusFeatureProvider(AbstractProvider):
 def _validate(configuration: OctopusFeatureConfiguration) -> None:
     if not configuration.client_identifier.strip():
         raise ValueError("client_identifier must not be empty.")
-    if configuration.cache_duration <= timedelta(0):
-        raise ValueError(
-            f"cache_duration must be positive, but was {configuration.cache_duration}."
-        )
-    if configuration.request_timeout <= timedelta(0):
-        raise ValueError(
-            f"request_timeout must be positive, but was {configuration.request_timeout}."
-        )
+    _validate_positive_duration("cache_duration", configuration.cache_duration)
+    _validate_positive_duration("request_timeout", configuration.request_timeout)
+
+
+def _validate_positive_duration(name: str, value: timedelta) -> None:
+    # Callers without a type checker may pass a number of seconds instead.
+    if not isinstance(value, timedelta):
+        raise TypeError(f"{name} must be a timedelta, but was {type(value).__name__}.")
+    if value <= timedelta(0):
+        raise ValueError(f"{name} must be positive, but was {value}.")

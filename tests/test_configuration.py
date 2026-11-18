@@ -2,7 +2,11 @@ from datetime import timedelta
 
 import pytest
 
-from octopus_openfeature_provider import OctopusFeatureConfiguration, ProductMetadata
+from octopus_openfeature_provider import (
+    OctopusFeatureConfiguration,
+    OctopusFeatureProvider,
+    ProductMetadata,
+)
 
 
 def test_sets_the_required_values() -> None:
@@ -44,14 +48,26 @@ def test_server_url_cannot_be_passed_in() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        # .NET reads this one. The Python provider deliberately doesn't.
+        "OctoToggle__Url",
+        "OCTOTOGGLE__URL",
+        "OCTOPUS_FEATURES_URL",
+        "OCTOPUS_FEATURE_FLAGS_URL",
+        "OCTOPUS_SERVER_URL",
+    ],
+)
 def test_ignores_server_url_environment_variables(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, name: str
 ) -> None:
-    # .NET reads this one. The Python provider deliberately doesn't.
-    monkeypatch.setenv("OctoToggle__Url", "https://example.com")
+    monkeypatch.setenv(name, "https://example.com")
 
     configuration = OctopusFeatureConfiguration(
         "client-identifier", ProductMetadata("test-product")
     )
+    provider = OctopusFeatureProvider(configuration)
 
     assert configuration._server_url == "https://features.octopus.com"
+    assert provider._configuration._server_url == "https://features.octopus.com"

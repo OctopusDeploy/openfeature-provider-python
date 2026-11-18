@@ -22,8 +22,9 @@ class OctopusFeatureConfiguration:
         cache_duration: How often the provider polls the feature flags service
             for new feature flag evaluations. Must be positive.
         request_timeout: How long a request to the feature flags service may
-            take before it's abandoned. It covers the whole request, connecting
-            included, and should be kept well under `cache_duration` so a
+            take in total, from connecting to reading the whole response,
+            before it's abandoned. If `http_client` has its own timeouts, the
+            shorter limit applies. Keep it well under `cache_duration` so a
             stalled request can't hold up the next poll. Must be positive.
         release_version_override: Overrides the application release version
             embedded in `client_identifier`. It's sent to the feature flags
