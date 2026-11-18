@@ -25,6 +25,11 @@ dev = [
     "pytest>=9.2.0",
     "ruff>=0.17.5",
 ]
+# Kept out of dev so a plain uv sync doesn't install it, and its own
+# dependencies aren't part of the audited graph
+audit = [
+    "pip-audit>=2.10.1",
+]
 
 [build-system]
 requires = ["uv_build>=0.13.4,<0.14"]
