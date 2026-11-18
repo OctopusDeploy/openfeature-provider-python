@@ -51,7 +51,6 @@ def test_server_url_cannot_be_passed_in() -> None:
 @pytest.mark.parametrize(
     "name",
     [
-        # .NET reads this one. The Python provider deliberately doesn't.
         "OctoToggle__Url",
         "OCTOTOGGLE__URL",
         "OCTOPUS_FEATURES_URL",

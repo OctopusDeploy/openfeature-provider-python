@@ -82,9 +82,9 @@ class OctopusFeatureProvider(AbstractProvider):
         raise self._reject_non_boolean_evaluation(flag_key)
 
     def _reject_non_boolean_evaluation(self, flag_key: str) -> Exception:
-        # As in .NET, a flag that exists gets TypeMismatchError, and any other
-        # gets FlagNotFoundError. There are no flags until manifest fetching
-        # lands, so for now every flag is missing.
+        # A flag that exists gets TypeMismatchError, and any other gets
+        # FlagNotFoundError. There are no flags until manifest fetching lands,
+        # so for now every flag is missing.
         return FlagNotFoundError(_FLAG_NOT_FOUND_MESSAGE)
 
 
