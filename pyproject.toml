@@ -35,6 +35,9 @@ audit = [
 requires = ["uv_build>=0.13.4,<0.14"]
 build-backend = "uv_build"
 
+[tool.uv]
+exclude-newer = "2 days"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
