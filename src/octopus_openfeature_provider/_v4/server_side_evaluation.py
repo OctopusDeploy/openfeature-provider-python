@@ -51,3 +51,55 @@ class ServerSideEvaluation:
         # TODO: rule evaluation to be implemented.
         raise GeneralError("Client-side rules are not supported yet.")
 
+
+@dataclass(frozen=True)
+class MalformedEvaluation:
+    """A flag with a slug but a field of the wrong JSON type. Every evaluation fails with ``ParseError``."""
+
+    slug: str
+    problem: str
+
+    def evaluate(
+        self, context: EvaluationContext | None
+    ) -> FlagResolutionDetails[bool]:
+        raise ParseError(self.problem)
+
+
+Evaluation = ServerSideEvaluation | MalformedEvaluation
+
+
+def parse_evaluation(entry: object) -> Evaluation | None:
+    """Parse one entry of the manifest array.
+
+    A field of the wrong type gives a ``MalformedEvaluation`` instead of failing the whole manifest, ``ParseError`` is raised later when evaluate the flag.
+    """
+    if not isinstance(entry, dict):
+        return None
+
+    slug = entry.get("slug")
+    if not isinstance(slug, str):
+        return None
+
+    value = entry.get("value")
+    if value is not None and not isinstance(value, bool):
+        return MalformedEvaluation(slug, "The flag's value is not a boolean.")
+
+    reason = entry.get("reason")
+    if reason is not None and not isinstance(reason, str):
+        return MalformedEvaluation(slug, "The flag's reason is not a string.")
+
+    evaluation_key = entry.get("evaluationKey")
+    if evaluation_key is not None and not isinstance(evaluation_key, str):
+        return MalformedEvaluation(slug, "The flag's evaluation key is not a string.")
+
+    rules = entry.get("rules")
+    if rules is not None and not isinstance(rules, list):
+        return MalformedEvaluation(slug, "The flag's rules are not a list.")
+
+    return ServerSideEvaluation(
+        slug=slug,
+        value=value,
+        reason=reason,
+        evaluation_key=evaluation_key,
+        rules=tuple(rules) if rules is not None else None,
+    )
