@@ -3,8 +3,6 @@ from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ErrorCode, ParseError
 
 from octopus_openfeature_provider._v4.server_side_evaluation import (
-    Evaluation,
-    MalformedEvaluation,
     ServerSideEvaluation,
     parse_evaluation,
 )
@@ -20,7 +18,7 @@ RULE = {
 CONTEXT = EvaluationContext(targeting_key="user-1", attributes={"ring": "beta"})
 
 
-def parse(entry: object) -> Evaluation:
+def parse(entry: object) -> ServerSideEvaluation:
     evaluation = parse_evaluation(entry)
     assert evaluation is not None
     return evaluation
@@ -72,39 +70,73 @@ def test_null_fields_are_treated_as_absent() -> None:
 
 
 @pytest.mark.parametrize(
-    ("entry", "expected_problem"),
+    ("entry", "expected"),
     [
         pytest.param(
             {"slug": "my-feature", "value": "true", "reason": "Enabled."},
-            "The flag's value is not a boolean.",
+            ServerSideEvaluation(
+                slug="my-feature",
+                value=None,
+                reason="Enabled.",
+                evaluation_key=None,
+                rules=None,
+            ),
             id="value-is-a-string",
         ),
         pytest.param(
             {"slug": "my-feature", "value": 1, "reason": "Enabled."},
-            "The flag's value is not a boolean.",
+            ServerSideEvaluation(
+                slug="my-feature",
+                value=None,
+                reason="Enabled.",
+                evaluation_key=None,
+                rules=None,
+            ),
             id="value-is-a-number",
         ),
         pytest.param(
             {"slug": "my-feature", "value": True, "reason": 42},
-            "The flag's reason is not a string.",
+            ServerSideEvaluation(
+                slug="my-feature",
+                value=True,
+                reason=None,
+                evaluation_key=None,
+                rules=None,
+            ),
             id="reason-is-a-number",
         ),
         pytest.param(
             {"slug": "my-feature", "evaluationKey": 42, "rules": [RULE]},
-            "The flag's evaluation key is not a string.",
+            ServerSideEvaluation(
+                slug="my-feature",
+                value=None,
+                reason=None,
+                evaluation_key=None,
+                rules=(RULE,),
+            ),
             id="evaluation-key-is-a-number",
         ),
         pytest.param(
             {"slug": "my-feature", "evaluationKey": "evaluation-key", "rules": {}},
-            "The flag's rules are not a list.",
+            ServerSideEvaluation(
+                slug="my-feature",
+                value=None,
+                reason=None,
+                evaluation_key="evaluation-key",
+                rules=None,
+            ),
             id="rules-is-an-object",
         ),
     ],
 )
-def test_a_field_of_the_wrong_type_gives_a_malformed_evaluation(
-    entry: dict[str, object], expected_problem: str
+def test_a_field_of_the_wrong_type_is_treated_as_absent(
+    entry: dict[str, object], expected: ServerSideEvaluation
 ) -> None:
-    assert parse(entry) == MalformedEvaluation("my-feature", expected_problem)
+    evaluation = parse(entry)
+
+    assert evaluation == expected
+    with pytest.raises(ParseError):
+        evaluation.evaluate(CONTEXT)
 
 
 @pytest.mark.parametrize(
@@ -200,15 +232,10 @@ def test_server_resolved_flag_returns_the_server_value_and_reason(value: bool) -
             "The flag defers to the client with no rules.",
             id="deferred-with-no-rules",
         ),
-        pytest.param(
-            MalformedEvaluation("my-feature", "The flag's value is not a boolean."),
-            "The flag's value is not a boolean.",
-            id="malformed-evaluation",
-        ),
     ],
 )
 def test_a_malformed_flag_raises_a_parse_error(
-    evaluation: Evaluation, expected_problem: str
+    evaluation: ServerSideEvaluation, expected_problem: str
 ) -> None:
     with pytest.raises(ParseError) as raised:
         evaluation.evaluate(CONTEXT)

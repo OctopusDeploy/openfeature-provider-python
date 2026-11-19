@@ -9,7 +9,7 @@ from openfeature.exception import FlagNotFoundError
 from openfeature.flag_evaluation import FlagResolutionDetails
 
 from octopus_openfeature_provider._evaluation_response import EvaluationResponse
-from octopus_openfeature_provider._v4.server_side_evaluation import Evaluation
+from octopus_openfeature_provider._v4.server_side_evaluation import ServerSideEvaluation
 
 _logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class FeatureFlagEvaluator:
         self._evaluation_response = evaluation_response
 
         # Keyed case-insensitively. setdefault keeps the first flag for a slug.
-        self._evaluations_by_slug: dict[str, Evaluation] = {}
+        self._evaluations_by_slug: dict[str, ServerSideEvaluation] = {}
         for evaluation in evaluation_response.evaluations:
             self._evaluations_by_slug.setdefault(evaluation.slug.lower(), evaluation)
 
@@ -36,7 +36,7 @@ class FeatureFlagEvaluator:
     def content_hash(self) -> bytes:
         return self._evaluation_response.content_hash
 
-    def find_evaluation_by_slug(self, slug: str) -> Evaluation | None:
+    def find_evaluation_by_slug(self, slug: str) -> ServerSideEvaluation | None:
         return self._evaluations_by_slug.get(slug.lower())
 
     def evaluate(

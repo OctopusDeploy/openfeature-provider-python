@@ -6,14 +6,14 @@ from dataclasses import dataclass
 from openfeature.exception import ParseError
 
 from octopus_openfeature_provider._v4.server_side_evaluation import (
-    Evaluation,
+    ServerSideEvaluation,
     parse_evaluation,
 )
 
 
 @dataclass(frozen=True)
 class EvaluationResponse:
-    evaluations: tuple[Evaluation, ...]
+    evaluations: tuple[ServerSideEvaluation, ...]
     content_hash: bytes
 
 

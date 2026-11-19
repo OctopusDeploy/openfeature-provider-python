@@ -5,11 +5,17 @@ A flag comes in one of two shapes: resolved by the server (``value`` and
 """
 
 from dataclasses import dataclass
-from typing import TypeAlias
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import GeneralError, ParseError
 from openfeature.flag_evaluation import FlagResolutionDetails
+
+from octopus_openfeature_provider._v4._json_utils import (
+    as_bool,
+    as_dict,
+    as_list,
+    as_str,
+)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -54,54 +60,23 @@ class ServerSideEvaluation:
         raise GeneralError("Client-side rules are not supported yet.")
 
 
-@dataclass(frozen=True, slots=True)
-class MalformedEvaluation:
-    """A flag with a slug but a field of the wrong JSON type.
-
-    Every evaluation fails with ``ParseError``.
-    """
-
-    slug: str
-    problem: str
-
-    def evaluate(
-        self, context: EvaluationContext | None
-    ) -> FlagResolutionDetails[bool]:
-        raise ParseError(self.problem)
-
-
-Evaluation: TypeAlias = ServerSideEvaluation | MalformedEvaluation
-
-
-def parse_evaluation(entry: object) -> Evaluation | None:
+def parse_evaluation(raw: object) -> ServerSideEvaluation | None:
     """Parse one entry of the manifest array."""
-    if not isinstance(entry, dict):
+    entry = as_dict(raw)
+    if entry is None:
         return None
 
-    slug = entry.get("slug")
-    if not isinstance(slug, str):
+    slug = as_str(entry.get("slug"))
+    if slug is None:
         return None
 
-    value = entry.get("value")
-    if value is not None and not isinstance(value, bool):
-        return MalformedEvaluation(slug, "The flag's value is not a boolean.")
-
-    reason = entry.get("reason")
-    if reason is not None and not isinstance(reason, str):
-        return MalformedEvaluation(slug, "The flag's reason is not a string.")
-
-    evaluation_key = entry.get("evaluationKey")
-    if evaluation_key is not None and not isinstance(evaluation_key, str):
-        return MalformedEvaluation(slug, "The flag's evaluation key is not a string.")
-
-    rules = entry.get("rules")
-    if rules is not None and not isinstance(rules, list):
-        return MalformedEvaluation(slug, "The flag's rules are not a list.")
+    # TODO: we probably want to parse the client side rules here later instead of plain list.
+    rules = as_list(entry.get("rules"))
 
     return ServerSideEvaluation(
         slug=slug,
-        value=value,
-        reason=reason,
-        evaluation_key=evaluation_key,
+        value=as_bool(entry.get("value")),
+        reason=as_str(entry.get("reason")),
+        evaluation_key=as_str(entry.get("evaluationKey")),
         rules=tuple(rules) if rules is not None else None,
     )
