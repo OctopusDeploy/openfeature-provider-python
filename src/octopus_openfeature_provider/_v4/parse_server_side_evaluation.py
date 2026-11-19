@@ -2,8 +2,6 @@
 
 import json
 
-from openfeature.exception import ParseError
-
 from octopus_openfeature_provider._evaluation_response import EvaluationResponse
 from octopus_openfeature_provider._v4._json_utils import (
     as_bool,
@@ -16,19 +14,28 @@ from octopus_openfeature_provider._v4.server_side_evaluation import (
 )
 
 
+class InvalidManifestError(ValueError):
+    """The body of an evaluations response is not a JSON array."""
+
+
 def parse_manifest(body: str | bytes, content_hash: bytes) -> EvaluationResponse:
-    """Parse the body of an evaluations response."""
+    """Parse the body of an evaluations response.
+
+    Raises:
+        InvalidManifestError: If the body is not a JSON array.
+    """
     try:
         entries: object = json.loads(body)
     except ValueError as e:
-        raise ParseError("The manifest is not valid JSON.") from e
+        raise InvalidManifestError("The manifest is not valid JSON.") from e
 
-    if not isinstance(entries, list):
-        raise ParseError("The manifest is not a list of flags.")
+    entries_list = as_list(entries)
+    if entries_list is None:
+        raise InvalidManifestError("The manifest is not a list of flags.")
 
     evaluations = tuple(
         evaluation
-        for entry in entries
+        for entry in entries_list
         if (evaluation := parse_evaluation(entry)) is not None
     )
 

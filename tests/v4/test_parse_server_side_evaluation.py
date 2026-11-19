@@ -1,8 +1,9 @@
 import pytest
 from openfeature.evaluation_context import EvaluationContext
-from openfeature.exception import ErrorCode, ParseError
+from openfeature.exception import ParseError
 
 from octopus_openfeature_provider._v4.parse_server_side_evaluation import (
+    InvalidManifestError,
     parse_evaluation,
     parse_manifest,
 )
@@ -243,11 +244,10 @@ def test_keeps_flags_with_duplicate_slugs() -> None:
         ),
     ],
 )
-def test_a_body_that_is_not_a_json_array_raises_a_parse_error(
+def test_a_body_that_is_not_a_json_array_raises_invalid_manifest_error(
     body: str | bytes, expected_problem: str
 ) -> None:
-    with pytest.raises(ParseError) as raised:
+    with pytest.raises(InvalidManifestError) as raised:
         parse_manifest(body, CONTENT_HASH)
 
-    assert raised.value.error_code == ErrorCode.PARSE_ERROR
-    assert raised.value.error_message == expected_problem
+    assert str(raised.value) == expected_problem
