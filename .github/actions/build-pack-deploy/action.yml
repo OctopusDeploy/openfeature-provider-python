@@ -1,0 +1,129 @@
+name: "Build, Pack, and Deploy"
+description: "Builds the provider, bundles the sdist and wheel into a zip, then pushes it to Octopus. Run the tests in a job this one needs."
+
+inputs:
+  prerelease-tag:
+    description: "Optional prerelease tag (e.g., ci, pr.123.branch-name). If provided, generates a prerelease version. If empty, builds a release version."
+    required: false
+    default: ""
+  octopus-url:
+    description: "Octopus Deploy server URL"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      with:
+        # The requires-python floor
+        python-version: "3.11"
+
+    # Octopus's built-in feed needs a SemVer version, which PEP 440 prerelease
+    # versions aren't, so prereleases carry two versions:
+    #   bundle (SemVer): 1.2.4-pr.12.my-branch.20261119T204026.sha-0123abcde
+    #   sdist and wheel (PEP 440): 1.2.4.dev20261119204026+pr.12.my.branch.0123abcde
+    # pyproject.toml holds the last release (1.2.3 here), so prereleases are
+    # built on the next patch version, to sort after the release they follow.
+    # The SHA is prefixed in the SemVer version because an all-digit identifier
+    # with a leading zero isn't valid SemVer. Release builds use the version in
+    # pyproject.toml for both.
+    - name: Compute version
+      id: version
+      shell: bash
+      env:
+        PRERELEASE_TAG: ${{ inputs.prerelease-tag }}
+      run: |
+        BASE=$(uv version --short)
+        if [ -z "$BASE" ]; then echo "Error: could not read the version from pyproject.toml"; exit 1; fi
+
+        if [ -n "$PRERELEASE_TAG" ]; then
+          # SemVer prerelease identifiers are non-empty [0-9A-Za-z-], and numeric ones have no leading zero
+          IDENTIFIERS='^[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*$'
+          LEADING_ZERO='\.0[0-9]+\.'
+          if ! [[ "$PRERELEASE_TAG" =~ $IDENTIFIERS ]] || [[ ".$PRERELEASE_TAG." =~ $LEADING_ZERO ]]; then
+            echo "Error: '$PRERELEASE_TAG' isn't a valid SemVer prerelease tag"; exit 1
+          fi
+
+          NEXT=$(uv version --bump patch --dry-run --short)
+          TIMESTAMP=$(date -u +%Y%m%dT%H%M%S)
+          SHA=${GITHUB_SHA:0:9}
+          BUNDLE_VERSION="${NEXT}-${PRERELEASE_TAG}.${TIMESTAMP}.sha-${SHA}"
+          # PEP 440 local version segments are [a-z0-9] separated by single dots
+          LOCAL=$(echo "$PRERELEASE_TAG" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/./g; s/^\.+|\.+$//g')
+          PACKAGE_VERSION="${NEXT}.dev${TIMESTAMP/T/}+${LOCAL}.${SHA}"
+        else
+          BUNDLE_VERSION="$BASE"
+          PACKAGE_VERSION="$BASE"
+        fi
+
+        echo "bundle=$BUNDLE_VERSION" >> "$GITHUB_OUTPUT"
+        echo "package=$PACKAGE_VERSION" >> "$GITHUB_OUTPUT"
+        echo "Bundle version: $BUNDLE_VERSION"
+        echo "Package version: $PACKAGE_VERSION"
+
+    - name: Stamp prerelease version
+      if: inputs.prerelease-tag != ''
+      shell: bash
+      env:
+        PACKAGE_VERSION: ${{ steps.version.outputs.package }}
+      # --frozen leaves uv.lock alone; the build doesn't read it
+      run: |
+        uv version "$PACKAGE_VERSION" --frozen
+        # uv writes the normalised form (e.g. local segment 007 becomes 7), which is what the build uses
+        PACKAGE_VERSION=$(uv version --short)
+        VERSION_FILE=src/octopus_openfeature_provider/_version.py
+        sed -i -E "s/^__version__ = \"[^\"]*\"(  # x-release-please-version)$/__version__ = \"$PACKAGE_VERSION\"\1/" "$VERSION_FILE"
+        grep -qF "__version__ = \"$PACKAGE_VERSION\"" "$VERSION_FILE" || { echo "Error: could not stamp $VERSION_FILE"; exit 1; }
+
+    - name: Build sdist and wheel
+      shell: bash
+      run: uv build --out-dir dist
+
+    # The built-in feed doesn't accept .whl, so the sdist and wheel are pushed
+    # as a single zip, the way the Java provider pushes its Maven Central bundle
+    - name: Bundle
+      id: bundle
+      shell: bash
+      env:
+        BUNDLE_VERSION: ${{ steps.version.outputs.bundle }}
+      run: |
+        shopt -s nullglob
+        SDISTS=(dist/*.tar.gz)
+        WHEELS=(dist/*.whl)
+        [ ${#SDISTS[@]} -eq 1 ] || { echo "Error: expected 1 sdist, found ${#SDISTS[@]}"; exit 1; }
+        [ ${#WHEELS[@]} -eq 1 ] || { echo "Error: expected 1 wheel, found ${#WHEELS[@]}"; exit 1; }
+
+        EXPECTED_VERSION=$(uv version --short)
+        BUILT_VERSION=$(unzip -p "${WHEELS[0]}" '*.dist-info/METADATA' | sed -n 's/^Version: //p')
+        [ "$BUILT_VERSION" = "$EXPECTED_VERSION" ] || { echo "Error: built version $BUILT_VERSION, expected $EXPECTED_VERSION"; exit 1; }
+
+        NAME="octopus-openfeature-provider-python.${BUNDLE_VERSION}"
+        zip -j "$NAME.zip" "${SDISTS[0]}" "${WHEELS[0]}"
+        echo "name=$NAME" >> "$GITHUB_OUTPUT"
+        echo "path=$NAME.zip" >> "$GITHUB_OUTPUT"
+        echo "Bundle: $NAME.zip"
+
+    # We don't push to Octopus from forks, so we upload the bundle's contents as
+    # an artifact instead. Artifacts download as a zip, so this one matches the bundle.
+    - name: Publish bundle artifact
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      if: github.event.pull_request.head.repo.fork == true
+      with:
+        name: ${{ steps.bundle.outputs.name }}
+        path: |
+          dist/*.tar.gz
+          dist/*.whl
+
+    - name: Login to Octopus Deploy
+      if: github.event.pull_request.head.repo.fork != true && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'renovate/')
+      uses: OctopusDeploy/login@b6156b03b4b892ffc8e9c57d098e9fe1866dcdb3 # v2.0.3
+      with:
+        server: ${{ inputs.octopus-url }}
+        service_account_id: 42e00747-07e1-4214-979c-af3381e6d951
+
+    - name: Push to Octopus
+      if: github.event.pull_request.head.repo.fork != true && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'renovate/')
+      uses: OctopusDeploy/push-package-action@fa130d8f8de488761165899d30eba15ab9f950eb # v4.0.8
+      with:
+        packages: |
+          ${{ steps.bundle.outputs.path }}
