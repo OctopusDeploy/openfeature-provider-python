@@ -86,7 +86,11 @@ jobs:
       - name: Audit for known vulnerabilities
         run: uv run --frozen --only-group audit pip-audit --requirement "$RUNNER_TEMP/requirements.txt" --require-hashes --disable-pip --strict
 
-  test-build-and-publish:
+  build-and-publish:
+    # The nightly run only re-audits; it has nothing new to publish
+    if: github.event_name != 'schedule'
+    # The action doesn't test, so only publish what passed every Python version and lint
+    needs: [test, lint]
     runs-on: ubuntu-latest
     permissions:
       id-token: write # Required to obtain the ID token from GitHub Actions
@@ -95,8 +99,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Build, Test, Pack, and Deploy (CI)
-        uses: ./.github/actions/build-test-pack-deploy
+      - name: Build, Pack, and Deploy (CI)
+        uses: ./.github/actions/build-pack-deploy
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         with:
           prerelease-tag: "ci"
@@ -108,16 +112,17 @@ jobs:
         env:
           BRANCH_NAME: ${{ github.head_ref }}
         run: |
-          # Sanitize: replace special chars with hyphens, convert to lowercase
-          SANITIZED=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/^-*//' | sed 's/-*$//')
+          # Sanitize: lowercase, collapse each run of other chars to one hyphen, trim hyphens
+          SANITIZED=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g')
           # Truncate to 20 characters
           TRUNCATED=${SANITIZED:0:20}
           # Remove trailing hyphens after truncation
-          TRUNCATED=$(echo "$TRUNCATED" | sed 's/-*$//')
-          echo "branch-name=$TRUNCATED" >> "$GITHUB_OUTPUT"
+          TRUNCATED=$(echo "$TRUNCATED" | sed -E 's/-+$//')
+          # A branch with no ASCII letters or digits would leave an empty identifier
+          echo "branch-name=${TRUNCATED:-branch}" >> "$GITHUB_OUTPUT"
 
-      - name: Build, Test, Pack, and Deploy (PR)
-        uses: ./.github/actions/build-test-pack-deploy
+      - name: Build, Pack, and Deploy (PR)
+        uses: ./.github/actions/build-pack-deploy
         if: github.event_name == 'pull_request'
         with:
           prerelease-tag: pr.${{ github.event.pull_request.number }}.${{ steps.pr-version.outputs.branch-name }}
