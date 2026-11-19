@@ -34,6 +34,20 @@ CI also runs the tests on every maintained CPython version. To test against one 
 uv run --python 3.11 pytest
 ```
 
+## Public API
+
+`tests/test_public_api.py` keeps the public API from changing by accident. It fails when:
+
+- **The public API changes without the snapshot changing too.** `tests/public_api.txt` lists every name in the package's `__all__` with its signature, attributes, base classes and decorators. After a deliberate change, update it and commit the result:
+
+  ```bash
+  uv run pytest tests/test_public_api.py --update-api-snapshot
+  ```
+
+- **The public API exposes a type consumers can't import.** A type from the provider has to be exported from `__init__.py` and listed in `__all__`. A type from anywhere else mustn't come from a private module, for example `httpx._types`.
+
+The check reads the source with [griffe](https://mkdocstrings.github.io/griffe/) rather than importing it, so the snapshot is the same on every Python version. The snapshot includes the members the provider inherits from the OpenFeature SDK, so an SDK update that changes them fails the check too. Review the diff, then update the snapshot.
+
 ## Dependencies
 
 `uv.lock` is committed, and CI fails if it's out of date. After changing dependencies in `pyproject.toml`, run `uv lock` and commit the result.
