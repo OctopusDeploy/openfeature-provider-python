@@ -1,0 +1,67 @@
+@dataclasses.dataclass
+class OctopusFeatureConfiguration:
+    client_identifier: str
+    product_metadata: octopus_openfeature_provider.ProductMetadata
+    cache_duration: datetime.timedelta = datetime.timedelta(minutes=1)
+    request_timeout: datetime.timedelta = datetime.timedelta(seconds=10)
+    release_version_override: str | None = None
+    http_client: httpx.Client | None = None
+    def __init__(
+        self,
+        client_identifier: str,
+        product_metadata: octopus_openfeature_provider.ProductMetadata,
+        *,
+        cache_duration: datetime.timedelta = datetime.timedelta(minutes=1),
+        request_timeout: datetime.timedelta = datetime.timedelta(seconds=10),
+        release_version_override: str | None = None,
+        http_client: httpx.Client | None = None,
+    ) -> None
+
+class OctopusFeatureProvider(openfeature.provider.AbstractProvider):
+    def __init__(
+        self,
+        configuration: octopus_openfeature_provider.OctopusFeatureConfiguration,
+    ) -> None
+    def get_metadata(self) -> openfeature.provider.Metadata
+    def resolve_boolean_details(
+        self,
+        flag_key: str,
+        default_value: bool,
+        evaluation_context: openfeature.evaluation_context.EvaluationContext | None = None,
+    ) -> openfeature.flag_evaluation.FlagResolutionDetails[bool]
+    def resolve_string_details(
+        self,
+        flag_key: str,
+        default_value: str,
+        evaluation_context: openfeature.evaluation_context.EvaluationContext | None = None,
+    ) -> openfeature.flag_evaluation.FlagResolutionDetails[str]
+    def resolve_integer_details(
+        self,
+        flag_key: str,
+        default_value: int,
+        evaluation_context: openfeature.evaluation_context.EvaluationContext | None = None,
+    ) -> openfeature.flag_evaluation.FlagResolutionDetails[int]
+    def resolve_float_details(
+        self,
+        flag_key: str,
+        default_value: float,
+        evaluation_context: openfeature.evaluation_context.EvaluationContext | None = None,
+    ) -> openfeature.flag_evaluation.FlagResolutionDetails[float]
+    def resolve_object_details(
+        self,
+        flag_key: str,
+        default_value: collections.abc.Sequence[openfeature.flag_evaluation.FlagValueType] | collections.abc.Mapping[str, openfeature.flag_evaluation.FlagValueType],
+        evaluation_context: openfeature.evaluation_context.EvaluationContext | None = None,
+    ) -> openfeature.flag_evaluation.FlagResolutionDetails[collections.abc.Sequence[openfeature.flag_evaluation.FlagValueType] | collections.abc.Mapping[str, openfeature.flag_evaluation.FlagValueType]]
+
+@dataclasses.dataclass(frozen=True, init=False)
+class ProductMetadata:
+    name: str
+    version: str | None
+    def __init__(
+        self,
+        name: str,
+        version: str | None = None,
+    ) -> None
+
+__version__
