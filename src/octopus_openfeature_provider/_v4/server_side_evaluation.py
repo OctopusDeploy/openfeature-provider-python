@@ -5,10 +5,17 @@ A flag comes in one of two shapes: resolved by the server (``value`` and
 """
 
 from dataclasses import dataclass
+from typing import cast
 
 from openfeature.evaluation_context import EvaluationContext
-from openfeature.exception import GeneralError, ParseError
+from openfeature.exception import ParseError
 from openfeature.flag_evaluation import FlagResolutionDetails
+
+from octopus_openfeature_provider._v4 import evaluation_reasons
+from octopus_openfeature_provider._v4.client_side_evaluation_context import (
+    ClientSideEvaluationContext,
+)
+from octopus_openfeature_provider._v4.client_side_rule import ClientSideRule
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -17,17 +24,21 @@ class ServerSideEvaluation:
     value: bool | None
     reason: str | None
     evaluation_key: str | None
-    # TODO: Hold ClientSideRule in this tuple once client-side rules are
-    # implemented.
-    rules: tuple[object, ...] | None
+    # A rule that wasn't a JSON object is None.
+    rules: tuple[ClientSideRule | None, ...] | None
 
     def evaluate(
         self, context: EvaluationContext | None
     ) -> FlagResolutionDetails[bool]:
-        """Resolve the flag.
+        """Resolve the flag, evaluating the client-side rules if the server left
+        any.
 
-        Raises ``ParseError`` for a flag in neither shape, which the OpenFeature
-        SDK turns into the caller's default value.
+        The rules are OR'd and the first match wins. A flag deferred to the
+        client is enabled when a rule matches, and disabled when none do.
+
+        Raises ``ParseError`` for a flag in neither shape, or with a rule or
+        condition the server could not have sent, which the OpenFeature SDK turns
+        into the caller's default value.
         """
         if self.value is not None:
             if self.reason is None:
@@ -49,5 +60,19 @@ class ServerSideEvaluation:
         if not self.rules:
             raise ParseError("The flag defers to the client with no rules.")
 
-        # TODO: rule evaluation to be implemented.
-        raise GeneralError("Client-side rules are not supported yet.")
+        rule_context = ClientSideEvaluationContext(self.evaluation_key, context)
+
+        for rule in self.rules:
+            if rule is None:
+                raise ParseError("The flag has a missing rule.")
+
+            if rule.matches(rule_context):
+                # matches raises for a rule without a name, so it has one here.
+                name = cast("str", rule.name)
+                return FlagResolutionDetails(
+                    value=True, reason=evaluation_reasons.matched_rule(name)
+                )
+
+        return FlagResolutionDetails(
+            value=False, reason=evaluation_reasons.did_not_match_any_rules()
+        )
