@@ -7,7 +7,9 @@ from openfeature.exception import ErrorCode, FlagNotFoundError
 from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Reason
 from openfeature.provider import AbstractProvider, Metadata
 
-from octopus_openfeature_provider._configuration import OctopusFeatureConfiguration
+from octopus_openfeature_provider._octopus_feature_configuration import (
+    OctopusFeatureConfiguration,
+)
 
 _FLAG_NOT_FOUND_MESSAGE = "The slug provided did not match any of your Octopus Feature Flags. Please double check your slug and try again."
 
