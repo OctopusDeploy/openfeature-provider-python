@@ -18,6 +18,9 @@ on:
 permissions:
   contents: read
 
+env:
+  OCTOPUS_SPACE: "Developer Experience"
+
 jobs:
   test-python:
     name: test (${{ matrix.python-version }})
@@ -82,6 +85,43 @@ jobs:
 
       - name: Audit for known vulnerabilities
         run: uv run --frozen --only-group audit pip-audit --requirement "$RUNNER_TEMP/requirements.txt" --require-hashes --disable-pip --strict
+
+  test-build-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # Required to obtain the ID token from GitHub Actions
+      contents: read
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build, Test, Pack, and Deploy (CI)
+        uses: ./.github/actions/build-test-pack-deploy
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        with:
+          prerelease-tag: "ci"
+          octopus-url: ${{ secrets.OCTOPUS_URL }}
+
+      - name: Prepare PR version suffix
+        if: github.event_name == 'pull_request'
+        id: pr-version
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+        run: |
+          # Sanitize: replace special chars with hyphens, convert to lowercase
+          SANITIZED=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/^-*//' | sed 's/-*$//')
+          # Truncate to 20 characters
+          TRUNCATED=${SANITIZED:0:20}
+          # Remove trailing hyphens after truncation
+          TRUNCATED=$(echo "$TRUNCATED" | sed 's/-*$//')
+          echo "branch-name=$TRUNCATED" >> "$GITHUB_OUTPUT"
+
+      - name: Build, Test, Pack, and Deploy (PR)
+        uses: ./.github/actions/build-test-pack-deploy
+        if: github.event_name == 'pull_request'
+        with:
+          prerelease-tag: pr.${{ github.event.pull_request.number }}.${{ steps.pr-version.outputs.branch-name }}
+          octopus-url: ${{ secrets.OCTOPUS_URL }}
 
   # A single check to require on main, so its name doesn't change when the
   # tested Python versions do
