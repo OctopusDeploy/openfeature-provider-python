@@ -10,13 +10,6 @@ from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import GeneralError, ParseError
 from openfeature.flag_evaluation import FlagResolutionDetails
 
-from octopus_openfeature_provider._v4._json_utils import (
-    as_bool,
-    as_dict,
-    as_list,
-    as_str,
-)
-
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ServerSideEvaluation:
@@ -58,25 +51,3 @@ class ServerSideEvaluation:
 
         # TODO: rule evaluation to be implemented.
         raise GeneralError("Client-side rules are not supported yet.")
-
-
-def parse_evaluation(raw: object) -> ServerSideEvaluation | None:
-    """Parse one entry of the manifest array."""
-    entry = as_dict(raw)
-    if entry is None:
-        return None
-
-    slug = as_str(entry.get("slug"))
-    if slug is None:
-        return None
-
-    # TODO: we probably want to parse the client side rules here later instead of plain list.
-    rules = as_list(entry.get("rules"))
-
-    return ServerSideEvaluation(
-        slug=slug,
-        value=as_bool(entry.get("value")),
-        reason=as_str(entry.get("reason")),
-        evaluation_key=as_str(entry.get("evaluationKey")),
-        rules=tuple(rules) if rules is not None else None,
-    )

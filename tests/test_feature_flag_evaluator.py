@@ -3,10 +3,12 @@ import logging
 import pytest
 from openfeature.exception import ErrorCode, FlagNotFoundError, ParseError
 
-from octopus_openfeature_provider._evaluation_response import parse_manifest
 from octopus_openfeature_provider._feature_flag_evaluator import (
     FLAG_NOT_FOUND_MESSAGE,
     FeatureFlagEvaluator,
+)
+from octopus_openfeature_provider._v4.parse_server_side_evaluation import (
+    parse_manifest,
 )
 
 LOGGER = "octopus_openfeature_provider"
