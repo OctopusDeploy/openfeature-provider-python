@@ -137,6 +137,14 @@ def test_rejects_an_empty_client_identifier(client_identifier: str) -> None:
         OctopusFeatureProvider(configuration)
 
 
+def test_rejects_a_client_identifier_that_is_not_a_string() -> None:
+    configuration = new_configuration()
+    configuration.client_identifier = None  # type: ignore[assignment]
+
+    with pytest.raises(TypeError, match="client_identifier"):
+        OctopusFeatureProvider(configuration)
+
+
 @pytest.mark.parametrize("field", ["cache_duration", "request_timeout"])
 @pytest.mark.parametrize("value", [timedelta(0), timedelta(seconds=-1)])
 def test_rejects_a_non_positive_duration(field: str, value: timedelta) -> None:
