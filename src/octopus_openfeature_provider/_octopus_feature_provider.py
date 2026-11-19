@@ -7,10 +7,10 @@ from openfeature.exception import ErrorCode, FlagNotFoundError
 from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Reason
 from openfeature.provider import AbstractProvider, Metadata
 
+from octopus_openfeature_provider._feature_flag_evaluator import FLAG_NOT_FOUND_MESSAGE
 from octopus_openfeature_provider._octopus_feature_configuration import (
     OctopusFeatureConfiguration,
 )
-from octopus_openfeature_provider._feature_flag_evaluator import FLAG_NOT_FOUND_MESSAGE
 
 
 class OctopusFeatureProvider(AbstractProvider):
