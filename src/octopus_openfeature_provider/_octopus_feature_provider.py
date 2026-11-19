@@ -7,11 +7,10 @@ from openfeature.exception import ErrorCode, FlagNotFoundError
 from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Reason
 from openfeature.provider import AbstractProvider, Metadata
 
+from octopus_openfeature_provider._feature_flag_evaluator import FLAG_NOT_FOUND_MESSAGE
 from octopus_openfeature_provider._octopus_feature_configuration import (
     OctopusFeatureConfiguration,
 )
-
-_FLAG_NOT_FOUND_MESSAGE = "The slug provided did not match any of your Octopus Feature Flags. Please double check your slug and try again."
 
 
 class OctopusFeatureProvider(AbstractProvider):
@@ -48,7 +47,7 @@ class OctopusFeatureProvider(AbstractProvider):
             value=default_value,
             reason=Reason.ERROR,
             error_code=ErrorCode.FLAG_NOT_FOUND,
-            error_message=_FLAG_NOT_FOUND_MESSAGE,
+            error_message=FLAG_NOT_FOUND_MESSAGE,
         )
 
     def resolve_string_details(
@@ -87,7 +86,7 @@ class OctopusFeatureProvider(AbstractProvider):
         # A flag that exists gets TypeMismatchError, and any other gets
         # FlagNotFoundError. There are no flags until manifest fetching lands,
         # so for now every flag is missing.
-        return FlagNotFoundError(_FLAG_NOT_FOUND_MESSAGE)
+        return FlagNotFoundError(FLAG_NOT_FOUND_MESSAGE)
 
 
 def _validate(configuration: OctopusFeatureConfiguration) -> None:
