@@ -7,7 +7,7 @@ The Octopus Deploy Python [OpenFeature provider](https://openfeature.dev/docs/re
 
 The provider is for server-side applications, such as web services, workers and command-line tools. It isn't intended for clients such as desktop applications.
 
-> **Note:** This provider is under active development and isn't ready for use yet. The API may change without notice until the first release.
+> **Note:** This provider is under active development and isn't ready for use yet. It isn't published to PyPI, and it doesn't fetch flags from Octopus yet, so every evaluation returns your default value. This README describes how the provider will work at its first release. Until then, the API may change without notice.
 
 ## Supported Python versions
 
@@ -68,9 +68,9 @@ For more on evaluating flags, see the [OpenFeature evaluation API documentation]
 | `cache_duration` | No | A `timedelta` for how often the provider checks for changed flags. Defaults to one minute. Must be positive. |
 | `request_timeout` | No | A `timedelta` for how long a request to Octopus may take in total before it's abandoned. Defaults to 10 seconds. Must be positive. |
 | `release_version_override` | No | Overrides the release version embedded in the client identifier. |
-| `http_client` | No | An `httpx.Client` for requests to Octopus, for example to configure a proxy, TLS or instrumentation. The provider never closes a client you supply. By default, it creates and manages its own. |
+| `http_client` | No | An `httpx.Client` for requests to Octopus, for example to configure a proxy, TLS or instrumentation. The provider never closes a client you supply. If the client has its own timeouts, the shorter of those and `request_timeout` applies. By default, the provider creates and manages its own client. |
 
-The provider takes a copy of the configuration when it's created, so later changes to the configuration don't affect it. It raises `ValueError` or `TypeError` if the configuration isn't valid.
+The provider takes a copy of the configuration when it's created, so later changes to the configuration don't affect it. It raises `ValueError` or `TypeError` if `client_identifier` is empty or isn't a string, or if `cache_duration` or `request_timeout` isn't a positive `timedelta`. `ProductMetadata` removes characters that aren't valid in an HTTP header token, and raises `ValueError` if the name, or a version you supply, has none left.
 
 ### Logging
 
