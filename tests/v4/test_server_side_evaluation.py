@@ -1,6 +1,6 @@
 import pytest
 from openfeature.evaluation_context import EvaluationContext
-from openfeature.exception import ErrorCode, GeneralError, ParseError
+from openfeature.exception import ErrorCode, ParseError
 
 from octopus_openfeature_provider._v4.server_side_evaluation import (
     Evaluation,
