@@ -1,6 +1,15 @@
 from _collections_abc import Sized
+from typing import overload
 
-from leaky_package._hidden import Hidden, HiddenBase, HiddenNumber
+from leaky_package._hidden import (
+    DEFAULT,
+    Hidden,
+    HiddenBase,
+    HiddenNumber,
+    hidden_decorator,
+)
+
+HiddenAlias = Hidden
 
 
 class Gadget(HiddenBase):
@@ -13,5 +22,18 @@ class Gadget(HiddenBase):
         return []
 
 
-def build() -> Hidden:
+@hidden_decorator
+def build(source: object = DEFAULT) -> Hidden:
     return Hidden()
+
+
+@overload
+def pick(value: int) -> int: ...
+
+
+@overload
+def pick(value: Hidden) -> Hidden: ...
+
+
+def pick(value: object) -> object:
+    return value

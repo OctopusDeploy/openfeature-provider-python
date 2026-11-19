@@ -46,7 +46,7 @@ uv run --python 3.11 pytest
 
 - **The public API exposes a type consumers can't import.** A type from the provider has to be exported from `__init__.py` and listed in `__all__`. A type from anywhere else mustn't come from a private module, for example `httpx._types`.
 
-The check reads the source with [griffe](https://mkdocstrings.github.io/griffe/) rather than importing it, so the snapshot is the same on every Python version. Methods inherited from the OpenFeature SDK aren't in the snapshot until the provider overrides them.
+The check reads the source with [griffe](https://mkdocstrings.github.io/griffe/) rather than importing it, so the snapshot is the same on every Python version. The snapshot includes the members the provider inherits from the OpenFeature SDK, so an SDK update that changes them fails the check too. Review the diff, then update the snapshot.
 
 ## Dependencies
 

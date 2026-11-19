@@ -1,17 +1,20 @@
 from pathlib import Path
 
 import pytest
-from api_surface import analyse_api_surface
+from api_surface import ApiSurface, analyse_api_surface
 
 _SOURCE = Path(__file__).parents[1] / "src"
 _SNAPSHOT = Path(__file__).with_name("public_api.txt")
 
 
-def test_public_api_matches_the_committed_snapshot(
-    request: pytest.FixtureRequest,
-) -> None:
-    surface = analyse_api_surface("octopus_openfeature_provider", _SOURCE)
+@pytest.fixture(scope="module")
+def surface() -> ApiSurface:
+    return analyse_api_surface("octopus_openfeature_provider", _SOURCE)
 
+
+def test_public_api_matches_the_committed_snapshot(
+    request: pytest.FixtureRequest, surface: ApiSurface
+) -> None:
     if request.config.getoption("--update-api-snapshot"):
         _SNAPSHOT.write_text(surface.text)
 
@@ -22,7 +25,5 @@ def test_public_api_matches_the_committed_snapshot(
     )
 
 
-def test_public_api_only_exposes_importable_types() -> None:
-    surface = analyse_api_surface("octopus_openfeature_provider", _SOURCE)
-
+def test_public_api_only_exposes_importable_types(surface: ApiSurface) -> None:
     assert surface.leaks == []

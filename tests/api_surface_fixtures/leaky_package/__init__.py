@@ -1,3 +1,3 @@
-from leaky_package._gadget import Gadget, build
+from leaky_package._gadget import Gadget, HiddenAlias, build, pick
 
-__all__ = ["Gadget", "build"]
+__all__ = ["Gadget", "HiddenAlias", "build", "pick"]
