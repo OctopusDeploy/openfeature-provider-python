@@ -1,4 +1,4 @@
-"""The flags returned by the v4 evaluations endpoint."""
+"""The parsed body of a v4 evaluations response, with its content hash."""
 
 import json
 from dataclasses import dataclass

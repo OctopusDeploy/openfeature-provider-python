@@ -5,19 +5,21 @@ A flag comes in one of two shapes: resolved by the server (``value`` and
 """
 
 from dataclasses import dataclass
+from typing import TypeAlias
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import GeneralError, ParseError
 from openfeature.flag_evaluation import FlagResolutionDetails
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ServerSideEvaluation:
     slug: str
     value: bool | None
     reason: str | None
     evaluation_key: str | None
-    # TODO: Replace with ClientSideRule in following tuple when client-side rules is implemented.
+    # TODO: Hold ClientSideRule in this tuple once client-side rules are
+    # implemented.
     rules: tuple[object, ...] | None
 
     def evaluate(
@@ -52,9 +54,12 @@ class ServerSideEvaluation:
         raise GeneralError("Client-side rules are not supported yet.")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class MalformedEvaluation:
-    """A flag with a slug but a field of the wrong JSON type. Every evaluation fails with ``ParseError``."""
+    """A flag with a slug but a field of the wrong JSON type.
+
+    Every evaluation fails with ``ParseError``.
+    """
 
     slug: str
     problem: str
@@ -65,14 +70,11 @@ class MalformedEvaluation:
         raise ParseError(self.problem)
 
 
-Evaluation = ServerSideEvaluation | MalformedEvaluation
+Evaluation: TypeAlias = ServerSideEvaluation | MalformedEvaluation
 
 
 def parse_evaluation(entry: object) -> Evaluation | None:
-    """Parse one entry of the manifest array.
-
-    A field of the wrong type gives a ``MalformedEvaluation`` instead of failing the whole manifest, ``ParseError`` is raised later when evaluate the flag.
-    """
+    """Parse one entry of the manifest array."""
     if not isinstance(entry, dict):
         return None
 

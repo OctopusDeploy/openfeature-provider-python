@@ -23,7 +23,7 @@ class FeatureFlagEvaluator:
         # Keyed case-insensitively. setdefault keeps the first flag for a slug.
         self._evaluations_by_slug: dict[str, Evaluation] = {}
         for evaluation in evaluation_response.evaluations:
-            self._evaluations_by_slug.setdefault(evaluation.slug.casefold(), evaluation)
+            self._evaluations_by_slug.setdefault(evaluation.slug.lower(), evaluation)
 
         self._warned_slugs: set[str] = set()
         self._warned_slugs_lock = threading.Lock()
@@ -37,7 +37,7 @@ class FeatureFlagEvaluator:
         return self._evaluation_response.content_hash
 
     def find_evaluation_by_slug(self, slug: str) -> Evaluation | None:
-        return self._evaluations_by_slug.get(slug.casefold())
+        return self._evaluations_by_slug.get(slug.lower())
 
     def evaluate(
         self, slug: str, context: EvaluationContext | None
@@ -51,7 +51,7 @@ class FeatureFlagEvaluator:
         return evaluation.evaluate(context)
 
     def _warn_once(self, slug: str) -> None:
-        key = slug.casefold()
+        key = slug.lower()
         with self._warned_slugs_lock:
             if key in self._warned_slugs:
                 return
