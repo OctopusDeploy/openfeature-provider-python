@@ -2,16 +2,18 @@ import pytest
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ErrorCode, ParseError
 
+from octopus_openfeature_provider._v4.client_side_rule import ClientSideRule
+from octopus_openfeature_provider._v4.conditions.context_attribute_is_one_of_condition import (
+    ContextAttributeIsOneOfCondition,
+)
 from octopus_openfeature_provider._v4.server_side_evaluation import (
     ServerSideEvaluation,
 )
 
-RULE = {
-    "name": "Beta ring",
-    "conditions": [
-        {"type": "context-attribute-is-one-of", "key": "ring", "values": ["beta"]}
-    ],
-}
+RULE = ClientSideRule(
+    name="Beta ring",
+    conditions=(ContextAttributeIsOneOfCondition(key="ring", values=("beta",)),),
+)
 
 # Satisfies RULE, so a flag that failed to raise would visibly turn on.
 CONTEXT = EvaluationContext(targeting_key="user-1", attributes={"ring": "beta"})
