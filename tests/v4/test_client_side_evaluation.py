@@ -1,8 +1,8 @@
 """Client-side evaluation cases the specification fixtures don't cover.
 
 The fixtures exercise missing and null fields, but not fields of the wrong type,
-or context attributes that aren't strings, or case-insensitive matching beyond
-ASCII.
+context attributes that aren't strings, case-insensitive matching beyond ASCII,
+or a malformed part of a flag that evaluation never reaches.
 """
 
 from datetime import UTC, datetime
@@ -112,6 +112,34 @@ def test_a_field_of_the_wrong_type_raises_a_parse_error(
 
     assert raised.value.error_code == ErrorCode.PARSE_ERROR
     assert raised.value.error_message == expected_problem
+
+
+# Malformed parts evaluation never reaches. Nothing checks the response up front,
+# as in the .NET, Java and browser providers, so a malformed rule or condition
+# only fails the flag if evaluation reaches it.
+
+
+def test_a_malformed_rule_behind_a_matching_rule_is_never_read() -> None:
+    result = deferred_flag(
+        rule_with(is_one_of(["beta"])),
+        {
+            "name": "Trial licences",
+            "conditions": [{"key": "license", "values": ["trial"]}],
+        },
+    ).evaluate(CONTEXT)
+
+    assert result.value is True
+    assert result.reason == "Matched rule 'Beta ring'."
+
+
+def test_a_malformed_condition_behind_a_failing_one_is_never_read() -> None:
+    # Conditions stop at the first that does not match, so the rest are never read.
+    result = deferred_flag(
+        rule_with(is_one_of(["alpha"]), {"type": "percentage-by-context"})
+    ).evaluate(CONTEXT)
+
+    assert result.value is False
+    assert result.reason == "Did not match any rules."
 
 
 # Context attributes that aren't strings
