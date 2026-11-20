@@ -46,7 +46,11 @@ runs:
 
           NEXT=$(uv version --bump patch --dry-run --short)
           TIMESTAMP=$(date -u +%Y%m%dT%H%M%S)
-          SHA=${GITHUB_SHA:0:9}
+          # The commit that was checked out and built. On a PR this is the head
+          # commit only if the caller checked it out: GITHUB_SHA is the merge
+          # commit GitHub makes for the PR, which isn't on the branch.
+          SHA=$(git rev-parse HEAD)
+          SHA=${SHA:0:9}
           BUNDLE_VERSION="${NEXT}-${PRERELEASE_TAG}.${TIMESTAMP}.sha-${SHA}"
           # PEP 440 local version segments are [a-z0-9] separated by single dots
           LOCAL=$(echo "$PRERELEASE_TAG" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/./g; s/^\.+|\.+$//g')

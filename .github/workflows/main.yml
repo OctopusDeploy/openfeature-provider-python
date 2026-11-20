@@ -87,9 +87,9 @@ jobs:
         run: uv run --frozen --only-group audit pip-audit --requirement "$RUNNER_TEMP/requirements.txt" --require-hashes --disable-pip --strict
 
   build-and-publish:
-    # The nightly run only re-audits; it has nothing new to publish
-    if: github.event_name != 'schedule'
-    # The action doesn't test, so only publish what passed every Python version and lint
+    # Runs on the nightly schedule too, so main gets a ci build each night, like the
+    # other providers. The action doesn't test, so only publish what passed every
+    # Python version and lint.
     needs: [test, lint]
     runs-on: ubuntu-latest
     permissions:
@@ -98,6 +98,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # On a PR, build the branch's head commit rather than GitHub's merge
+          # commit, so the SHA in the version can be found on the branch
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Build, Pack, and Deploy (CI)
         uses: ./.github/actions/build-pack-deploy
