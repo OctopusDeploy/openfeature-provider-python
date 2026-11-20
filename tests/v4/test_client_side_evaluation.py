@@ -1,7 +1,8 @@
 """Client-side evaluation cases the specification fixtures don't cover.
 
 The fixtures exercise missing and null fields, but not fields of the wrong type,
-or context attributes that aren't strings.
+or context attributes that aren't strings, or case-insensitive matching beyond
+ASCII.
 """
 
 from datetime import UTC, datetime
@@ -171,3 +172,52 @@ def test_a_targeting_key_that_is_not_a_string_counts_as_missing(
     ).evaluate(context)
 
     assert result.value is (percentage == 100)
+
+
+# Case-insensitive matching beyond ASCII, compared as .NET's OrdinalIgnoreCase
+# compares it
+
+
+@pytest.mark.parametrize(
+    ("attribute", "value", "expected"),
+    [
+        pytest.param("straße", "STRAßE", True, id="sharp-s-in-both"),
+        pytest.param("Straße", "STRASSE", False, id="sharp-s-does-not-expand"),
+        pytest.param("ﬁle", "FILE", False, id="ligature-does-not-expand"),
+        pytest.param("café", "CAFÉ", True, id="accented-letter"),
+        pytest.param("пользователь", "ПОЛЬЗОВАТЕЛЬ", True, id="cyrillic"),
+    ],
+)
+def test_a_non_ascii_value_compares_one_character_at_a_time(
+    attribute: str, value: str, expected: bool
+) -> None:
+    context = EvaluationContext(attributes={"city": attribute})
+
+    result = deferred_flag(
+        rule_with(
+            {"type": "context-attribute-is-one-of", "key": "city", "values": [value]}
+        )
+    ).evaluate(context)
+
+    assert result.value is expected
+
+
+@pytest.mark.parametrize(
+    ("attribute_key", "expected"),
+    [
+        pytest.param("STRAßE", True, id="sharp-s-in-both"),
+        pytest.param("STRASSE", False, id="sharp-s-does-not-expand"),
+    ],
+)
+def test_a_non_ascii_key_compares_one_character_at_a_time(
+    attribute_key: str, expected: bool
+) -> None:
+    context = EvaluationContext(attributes={attribute_key: "beta"})
+
+    result = deferred_flag(
+        rule_with(
+            {"type": "context-attribute-is-one-of", "key": "straße", "values": ["beta"]}
+        )
+    ).evaluate(context)
+
+    assert result.value is expected

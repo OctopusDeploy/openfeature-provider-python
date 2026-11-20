@@ -9,5 +9,4 @@ def matched_rule(rule_name: str) -> str:
     return f"Matched rule '{rule_name}'."
 
 
-def did_not_match_any_rules() -> str:
-    return "Did not match any rules."
+DID_NOT_MATCH_ANY_RULES = "Did not match any rules."

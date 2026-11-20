@@ -74,5 +74,5 @@ class ServerSideEvaluation:
                 )
 
         return FlagResolutionDetails(
-            value=False, reason=evaluation_reasons.did_not_match_any_rules()
+            value=False, reason=evaluation_reasons.DID_NOT_MATCH_ANY_RULES
         )

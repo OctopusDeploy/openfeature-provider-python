@@ -102,8 +102,10 @@ def parse_condition(raw: object) -> ClientSideCondition | None:
     object.
 
     An unrecognised or missing ``type`` parses to ``UnknownCondition`` rather
-    than failing, so a condition type introduced by a newer server degrades
-    safely on an older provider.
+    than failing the whole response. An unrecognised type never matches, so a
+    condition type introduced by a newer server degrades safely on an older
+    provider. A missing one raises ``ParseError`` when the flag is evaluated, as
+    no server sends a condition without a type.
     """
     condition = as_dict(raw)
     if condition is None:

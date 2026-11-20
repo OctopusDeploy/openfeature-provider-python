@@ -3,6 +3,7 @@ import pytest
 from octopus_openfeature_provider._v4._json_utils import (
     as_bool,
     as_dict,
+    as_int,
     as_list,
     as_str,
 )
@@ -26,6 +27,16 @@ def test_as_bool_returns_a_boolean(value: bool) -> None:
 @pytest.mark.parametrize("value", [None, 0, 1, "true", [], {}])
 def test_as_bool_reads_any_other_type_as_absent(value: object) -> None:
     assert as_bool(value) is None
+
+
+@pytest.mark.parametrize("value", [0, 50, -1, 101])
+def test_as_int_returns_an_integer(value: int) -> None:
+    assert as_int(value) == value
+
+
+@pytest.mark.parametrize("value", [None, True, False, 50.0, "50", [], {}])
+def test_as_int_reads_any_other_type_as_absent(value: object) -> None:
+    assert as_int(value) is None
 
 
 @pytest.mark.parametrize("value", [[], [1, "two", None]])
