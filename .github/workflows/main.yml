@@ -87,9 +87,7 @@ jobs:
         run: uv run --frozen --only-group audit pip-audit --requirement "$RUNNER_TEMP/requirements.txt" --require-hashes --disable-pip --strict
 
   build-and-publish:
-    # Runs on the nightly schedule too, so main gets a ci build each night, like the
-    # other providers. The action doesn't test, so only publish what passed every
-    # Python version and lint.
+    # The action doesn't test, so only publish what passed every Python version and lint
     needs: [test, lint]
     runs-on: ubuntu-latest
     permissions:
