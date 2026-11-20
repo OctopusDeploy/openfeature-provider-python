@@ -116,14 +116,14 @@ runs:
 
     - name: Login to Octopus Deploy
       if: github.event.pull_request.head.repo.fork != true && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'renovate/')
-      uses: OctopusDeploy/login@b6156b03b4b892ffc8e9c57d098e9fe1866dcdb3 # v2.0.3
+      uses: OctopusDeploy/login@v2
       with:
         server: ${{ inputs.octopus-url }}
         service_account_id: 42e00747-07e1-4214-979c-af3381e6d951
 
     - name: Push to Octopus
       if: github.event.pull_request.head.repo.fork != true && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'renovate/')
-      uses: OctopusDeploy/push-package-action@fa130d8f8de488761165899d30eba15ab9f950eb # v4.0.8
+      uses: OctopusDeploy/push-package-action@v4
       with:
         packages: |
           ${{ steps.bundle.outputs.path }}
