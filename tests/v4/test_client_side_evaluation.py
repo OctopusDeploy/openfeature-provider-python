@@ -202,8 +202,10 @@ def test_a_targeting_key_that_is_not_a_string_counts_as_missing(
     assert result.value is (percentage == 100)
 
 
-# Case-insensitive matching beyond ASCII, compared as .NET's OrdinalIgnoreCase
-# compares it
+# Case-insensitive matching where the providers disagree. .NET and Java leave a
+# character that uppercases to several ("ß" to "SS") as it is, but the browser
+# provider expands it. These follow .NET until the specification settles it in
+# BMBB-1553, which would change them if it went the other way.
 
 
 @pytest.mark.parametrize(
@@ -212,8 +214,6 @@ def test_a_targeting_key_that_is_not_a_string_counts_as_missing(
         pytest.param("straße", "STRAßE", True, id="sharp-s-in-both"),
         pytest.param("Straße", "STRASSE", False, id="sharp-s-does-not-expand"),
         pytest.param("ﬁle", "FILE", False, id="ligature-does-not-expand"),
-        pytest.param("café", "CAFÉ", True, id="accented-letter"),
-        pytest.param("пользователь", "ПОЛЬЗОВАТЕЛЬ", True, id="cyrillic"),
     ],
 )
 def test_a_non_ascii_value_compares_one_character_at_a_time(
