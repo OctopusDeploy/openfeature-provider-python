@@ -2,6 +2,10 @@ import pytest
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ParseError
 
+from octopus_openfeature_provider._v4.client_side_rule import ClientSideRule
+from octopus_openfeature_provider._v4.conditions.context_attribute_is_one_of_condition import (
+    ContextAttributeIsOneOfCondition,
+)
 from octopus_openfeature_provider._v4.parse_server_side_evaluation import (
     InvalidManifestError,
     parse_evaluation,
@@ -17,6 +21,11 @@ RULE = {
         {"type": "context-attribute-is-one-of", "key": "ring", "values": ["beta"]}
     ],
 }
+
+PARSED_RULE = ClientSideRule(
+    name="Beta ring",
+    conditions=(ContextAttributeIsOneOfCondition(key="ring", values=("beta",)),),
+)
 
 CONTEXT = EvaluationContext(targeting_key="user-1", attributes={"ring": "beta"})
 
@@ -50,7 +59,7 @@ def test_deferred_flag_parses_evaluation_key_and_rules() -> None:
         value=None,
         reason=None,
         evaluation_key="evaluation-key",
-        rules=(RULE,),
+        rules=(PARSED_RULE,),
     )
 
 
@@ -97,7 +106,7 @@ def test_deferred_flag_parses_evaluation_key_and_rules() -> None:
                 value=None,
                 reason=None,
                 evaluation_key=None,
-                rules=(RULE,),
+                rules=(PARSED_RULE,),
             ),
             id="evaluation-key-is-a-number",
         ),
