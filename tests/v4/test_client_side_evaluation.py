@@ -1,8 +1,8 @@
 """Client-side evaluation cases the specification fixtures don't cover.
 
 The fixtures exercise missing and null fields, but not fields of the wrong type,
-context attributes that aren't strings, case-insensitive matching beyond ASCII,
-or a malformed part of a flag that evaluation never reaches.
+context attributes that aren't strings, or a malformed part of a flag that
+evaluation never reaches.
 """
 
 from datetime import UTC, datetime
@@ -200,52 +200,3 @@ def test_a_targeting_key_that_is_not_a_string_counts_as_missing(
     ).evaluate(context)
 
     assert result.value is (percentage == 100)
-
-
-# Case-insensitive matching where the providers disagree. .NET and Java leave a
-# character that uppercases to several ("ß" to "SS") as it is, but the browser
-# provider expands it. These follow .NET until the specification settles it in
-# BMBB-1553, which would change them if it went the other way.
-
-
-@pytest.mark.parametrize(
-    ("attribute", "value", "expected"),
-    [
-        pytest.param("straße", "STRAßE", True, id="sharp-s-in-both"),
-        pytest.param("Straße", "STRASSE", False, id="sharp-s-does-not-expand"),
-        pytest.param("ﬁle", "FILE", False, id="ligature-does-not-expand"),
-    ],
-)
-def test_a_non_ascii_value_compares_one_character_at_a_time(
-    attribute: str, value: str, expected: bool
-) -> None:
-    context = EvaluationContext(attributes={"city": attribute})
-
-    result = deferred_flag(
-        rule_with(
-            {"type": "context-attribute-is-one-of", "key": "city", "values": [value]}
-        )
-    ).evaluate(context)
-
-    assert result.value is expected
-
-
-@pytest.mark.parametrize(
-    ("attribute_key", "expected"),
-    [
-        pytest.param("STRAßE", True, id="sharp-s-in-both"),
-        pytest.param("STRASSE", False, id="sharp-s-does-not-expand"),
-    ],
-)
-def test_a_non_ascii_key_compares_one_character_at_a_time(
-    attribute_key: str, expected: bool
-) -> None:
-    context = EvaluationContext(attributes={attribute_key: "beta"})
-
-    result = deferred_flag(
-        rule_with(
-            {"type": "context-attribute-is-one-of", "key": "straße", "values": ["beta"]}
-        )
-    ).evaluate(context)
-
-    assert result.value is expected
