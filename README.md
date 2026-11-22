@@ -25,7 +25,6 @@ This also installs the [OpenFeature SDK](https://pypi.org/project/openfeature-sd
 
 ```python
 from openfeature import api
-from openfeature.evaluation_context import EvaluationContext
 
 from octopus_openfeature_provider import (
     OctopusFeatureConfiguration,
@@ -45,9 +44,7 @@ api.set_provider_and_wait(provider)
 
 client = api.get_client()
 
-# Evaluation context is passed with each evaluation, so one provider serves every request.
-context = EvaluationContext(attributes={"userid": "bob@octopus.com"})
-if client.get_boolean_value("to-the-moon-feature", False, context):
+if client.get_boolean_value("to-the-moon-feature", False):
     print("🚀🚀🚀")
 ```
 
