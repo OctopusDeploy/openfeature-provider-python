@@ -36,34 +36,15 @@ def is_one_of(
     if open_feature_context is None:
         return False
 
-    upper_key = _ordinal_upper(key)
-    upper_values = {_ordinal_upper(value) for value in values if value is not None}
+    # The providers agree on ASCII. Beyond it, str.upper expands characters such
+    # as "ß" to "SS" as the browser provider does, where .NET and Java don't.
+    upper_key = key.upper()
+    upper_values = {value.upper() for value in values if value is not None}
 
     return any(
         isinstance(attribute_key, str)
-        and _ordinal_upper(attribute_key) == upper_key
+        and attribute_key.upper() == upper_key
         and isinstance(attribute, str)
-        and _ordinal_upper(attribute) in upper_values
+        and attribute.upper() in upper_values
         for attribute_key, attribute in open_feature_context.attributes.items()
-    )
-
-
-def _ordinal_upper(text: str) -> str:
-    """``text`` uppercased one character at a time, so two strings compare as
-    .NET's ``OrdinalIgnoreCase`` and Java's ``equalsIgnoreCase`` compare them.
-
-    ``str.upper`` applies Unicode's full case mappings, some of which expand a
-    character, so "Straße" would equal "STRASSE" where .NET and Java say it
-    doesn't. A character that expands is kept as it is instead. That agrees with
-    .NET on ASCII and on expansions such as "ß" and "ﬁ", but not on the few Greek
-    letters with an iota subscript, which .NET maps to their titlecase form.
-    """
-    upper = text.upper()
-
-    # Nothing expanded, so every character mapped one to one.
-    if len(upper) == len(text):
-        return upper
-
-    return "".join(
-        upper_char if len(upper_char := char.upper()) == 1 else char for char in text
     )
