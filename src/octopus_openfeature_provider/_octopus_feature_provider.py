@@ -3,11 +3,15 @@ from collections.abc import Mapping, Sequence
 from datetime import timedelta
 
 from openfeature.evaluation_context import EvaluationContext
-from openfeature.exception import ErrorCode, FlagNotFoundError
-from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType, Reason
+from openfeature.exception import FlagNotFoundError, TypeMismatchError
+from openfeature.flag_evaluation import FlagResolutionDetails, FlagValueType
 from openfeature.provider import AbstractProvider, Metadata
 
+from octopus_openfeature_provider._feature_flag_api_client import FeatureFlagApiClient
 from octopus_openfeature_provider._feature_flag_evaluator import FLAG_NOT_FOUND_MESSAGE
+from octopus_openfeature_provider._feature_flag_evaluator_cache import (
+    FeatureFlagEvaluatorCache,
+)
 from octopus_openfeature_provider._octopus_feature_configuration import (
     OctopusFeatureConfiguration,
 )
@@ -32,6 +36,14 @@ class OctopusFeatureProvider(AbstractProvider):
         # configuration but still uses the caller's HTTP client.
         self._configuration = copy.copy(configuration)
         _validate(self._configuration)
+        self._evaluator_cache = FeatureFlagEvaluatorCache(
+            FeatureFlagApiClient(self._configuration)
+        )
+
+    def initialize(self, evaluation_context: EvaluationContext) -> None:
+        # Never raises, so the SDK reports the provider as ready even when the
+        # fetch fails. Every flag is then missing.
+        self._evaluator_cache.initialize()
 
     def get_metadata(self) -> Metadata:
         return Metadata(name="octopus-python-provider")
@@ -42,12 +54,8 @@ class OctopusFeatureProvider(AbstractProvider):
         default_value: bool,
         evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]:
-        # A stub until manifest fetching lands. Every flag is missing.
-        return FlagResolutionDetails(
-            value=default_value,
-            reason=Reason.ERROR,
-            error_code=ErrorCode.FLAG_NOT_FOUND,
-            error_message=FLAG_NOT_FOUND_MESSAGE,
+        return self._evaluator_cache.get_evaluator().evaluate(
+            flag_key, evaluation_context
         )
 
     def resolve_string_details(
@@ -83,10 +91,10 @@ class OctopusFeatureProvider(AbstractProvider):
         raise self._reject_non_boolean_evaluation(flag_key)
 
     def _reject_non_boolean_evaluation(self, flag_key: str) -> Exception:
-        # A flag that exists gets TypeMismatchError, and any other gets
-        # FlagNotFoundError. There are no flags until manifest fetching lands,
-        # so for now every flag is missing.
-        return FlagNotFoundError(FLAG_NOT_FOUND_MESSAGE)
+        evaluator = self._evaluator_cache.get_evaluator()
+        if evaluator.find_evaluation_by_slug(flag_key) is None:
+            return FlagNotFoundError(FLAG_NOT_FOUND_MESSAGE)
+        return TypeMismatchError("Octopus only supports boolean flags.")
 
 
 def _validate(configuration: OctopusFeatureConfiguration) -> None:
