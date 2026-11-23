@@ -1,4 +1,5 @@
 import copy
+import threading
 from collections.abc import Mapping, Sequence
 from datetime import timedelta
 
@@ -16,6 +17,8 @@ from octopus_openfeature_provider._octopus_feature_configuration import (
     OctopusFeatureConfiguration,
 )
 
+MAX_CACHE_DURATION = timedelta(seconds=threading.TIMEOUT_MAX)
+
 
 class OctopusFeatureProvider(AbstractProvider):
     """An OpenFeature provider for Octopus feature flags.
@@ -25,7 +28,8 @@ class OctopusFeatureProvider(AbstractProvider):
 
     Raises:
         ValueError: If the configuration's client identifier is empty, or its
-            `cache_duration` or `request_timeout` isn't positive.
+            `cache_duration` or `request_timeout` isn't positive, or its
+            `cache_duration` is longer than `threading.TIMEOUT_MAX` seconds.
         TypeError: If the configuration's client identifier isn't a `str`,
             or its `cache_duration` or `request_timeout` isn't a `timedelta`.
     """
@@ -37,13 +41,17 @@ class OctopusFeatureProvider(AbstractProvider):
         self._configuration = copy.copy(configuration)
         _validate(self._configuration)
         self._evaluator_cache = FeatureFlagEvaluatorCache(
-            FeatureFlagApiClient(self._configuration)
+            FeatureFlagApiClient(self._configuration),
+            self._configuration.cache_duration,
         )
 
     def initialize(self, evaluation_context: EvaluationContext) -> None:
         # Never raises, so the SDK reports the provider as ready even when the
-        # fetch fails. Every flag is then missing.
+        # fetch fails. Every flag is then missing until a refresh succeeds.
         self._evaluator_cache.initialize()
+
+    def shutdown(self) -> None:
+        self._evaluator_cache.shutdown()
 
     def get_metadata(self) -> Metadata:
         return Metadata(name="octopus-python-provider")
@@ -108,6 +116,12 @@ def _validate(configuration: OctopusFeatureConfiguration) -> None:
     if not client_identifier.strip():
         raise ValueError("client_identifier must not be empty.")
     _validate_positive_duration("cache_duration", configuration.cache_duration)
+    # The polling thread waits this long between checks, and a longer wait
+    # raises OverflowError there, which would stop polling without a log.
+    if configuration.cache_duration > MAX_CACHE_DURATION:
+        raise ValueError(
+            f"cache_duration must be at most {MAX_CACHE_DURATION}, but was {configuration.cache_duration}."
+        )
     _validate_positive_duration("request_timeout", configuration.request_timeout)
 
 
