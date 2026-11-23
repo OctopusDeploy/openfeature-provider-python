@@ -119,7 +119,9 @@ def _octopus_client_header_value(configuration: OctopusFeatureConfiguration) -> 
     return f"{value} {_PROVIDER_NAME}/{__version__}"
 
 
-def _shorter_timeout(client_timeout: httpx.Timeout, configuration_timeout: float) -> httpx.Timeout:
+def _shorter_timeout(
+    client_timeout: httpx.Timeout, configuration_timeout: float
+) -> httpx.Timeout:
     """Apply the shorter of the client's own timeout and the timeout from configuration.
 
     httpx has no limit on a request's total time, only on each phase of it, so ``configuration_timeout`` bounds each phase.

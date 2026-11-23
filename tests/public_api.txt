@@ -22,6 +22,10 @@ class OctopusFeatureProvider(openfeature.provider.AbstractProvider):
         self,
         configuration: octopus_openfeature_provider.OctopusFeatureConfiguration,
     ) -> None
+    def initialize(
+        self,
+        evaluation_context: openfeature.evaluation_context.EvaluationContext,
+    ) -> None
     def get_metadata(self) -> openfeature.provider.Metadata
     def resolve_boolean_details(
         self,
@@ -59,10 +63,6 @@ class OctopusFeatureProvider(openfeature.provider.AbstractProvider):
         on_emit: collections.abc.Callable[[openfeature.provider.FeatureProvider, openfeature.event.ProviderEvent, openfeature.event.ProviderEventDetails], None],
     ) -> None
     def detach(self) -> None
-    def initialize(
-        self,
-        evaluation_context: openfeature.evaluation_context.EvaluationContext,
-    ) -> None
     def shutdown(self) -> None
     def get_provider_hooks(self) -> list[openfeature.hook.Hook]
     async def resolve_boolean_details_async(
