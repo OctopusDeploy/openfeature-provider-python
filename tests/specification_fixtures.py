@@ -16,7 +16,7 @@ from typing import Any, cast
 import pytest
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ErrorCode
-from openfeature.flag_evaluation import FlagEvaluationDetails
+from openfeature.flag_evaluation import FlagEvaluationDetails, Reason
 
 FIXTURES_DIRECTORY = Path(__file__).parent.parent / "specification" / "Fixtures"
 
@@ -64,6 +64,9 @@ def load_fixture_cases(directory: Path = FIXTURES_DIRECTORY) -> list[FixtureCase
     Raises:
         RuntimeError: If there are no fixture files, so a missing submodule
             fails the run rather than passing with nothing tested.
+        ValueError: If a fixture file or case is malformed. The message names
+            the file and case, as the error is raised while pytest collects the
+            tests, where a bare KeyError wouldn't say which fixture it came from.
     """
     paths = sorted(directory.glob("*.json"))
     if not paths:
@@ -75,9 +78,25 @@ def load_fixture_cases(directory: Path = FIXTURES_DIRECTORY) -> list[FixtureCase
 
 
 def _load_fixture_file(path: Path) -> list[FixtureCase]:
-    fixture = json.loads(path.read_text(encoding="utf-8"))
-    response = json.dumps(fixture["response"])
-    return [_case(path.name, response, case) for case in fixture["cases"]]
+    try:
+        fixture = json.loads(path.read_text(encoding="utf-8"))
+        response = json.dumps(fixture["response"])
+        raw_cases = fixture["cases"]
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError(
+            f"{path.name} isn't a valid specification fixture: {error!r}"
+        ) from error
+
+    cases = []
+    for number, raw_case in enumerate(raw_cases, start=1):
+        try:
+            cases.append(_case(path.name, response, raw_case))
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError(
+                f"Case {number} in {path.name} isn't a valid specification "
+                f"fixture case: {error!r}"
+            ) from error
+    return cases
 
 
 def _case(file_name: str, response: str, case: dict[str, Any]) -> FixtureCase:
@@ -110,7 +129,9 @@ def run_fixture_case(
 ) -> None:
     """Evaluate case and assert the result matches what the fixture expects.
 
-    The reason is only checked where the fixture states one.
+    The reason is checked where the fixture states one. Where it doesn't but
+    the case expects an error, the reason must be ERROR, as the SDK passes a
+    returned error through without setting it.
     """
     details = evaluate(case)
 
@@ -118,3 +139,5 @@ def run_fixture_case(
     assert details.error_code == case.expected_error_code
     if case.expected_reason is not None:
         assert details.reason == case.expected_reason
+    elif case.expected_error_code is not None:
+        assert details.reason == Reason.ERROR

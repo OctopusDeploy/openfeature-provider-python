@@ -5,8 +5,6 @@ decode, the SDK's context merge and error handling, and the provider's boolean
 wiring as well as the evaluator.
 """
 
-from collections.abc import Iterator
-
 import pytest
 from fake_feature_flags_server import FakeFeatureFlagsServer, configuration_for
 from openfeature import api
@@ -19,24 +17,22 @@ from specification_fixtures import (
 
 from octopus_openfeature_provider import OctopusFeatureProvider
 
-
-@pytest.fixture(autouse=True)
-def reset_the_sdk() -> Iterator[None]:
-    yield
-    api.shutdown()
+pytestmark = pytest.mark.usefixtures("reset_the_sdk")
 
 
 @parametrize_fixture_cases()
 def test_specification_fixture(
     feature_flags_server: FakeFeatureFlagsServer, case: FixtureCase
 ) -> None:
-    def evaluate(case: FixtureCase) -> FlagEvaluationDetails[bool]:
-        feature_flags_server.evaluations.body = case.response
+    def evaluate(fixture_case: FixtureCase) -> FlagEvaluationDetails[bool]:
+        feature_flags_server.evaluations.body = fixture_case.response
         api.set_provider_and_wait(
             OctopusFeatureProvider(configuration_for(feature_flags_server))
         )
         return api.get_client().get_boolean_details(
-            case.slug, case.default_value, case.evaluation_context()
+            fixture_case.slug,
+            fixture_case.default_value,
+            fixture_case.evaluation_context(),
         )
 
     run_fixture_case(case, evaluate)
