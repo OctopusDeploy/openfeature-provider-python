@@ -92,7 +92,7 @@ class FeatureFlagApiClient:
             return parse_manifest(response.content, content_hash)
         except InvalidManifestError:
             _logger.warning(
-                "Feature flag response content from %s was not a list of flags",
+                "Feature flag response content from %s was not a list of flag evaluations",
                 self._server_url,
                 exc_info=True,
             )
