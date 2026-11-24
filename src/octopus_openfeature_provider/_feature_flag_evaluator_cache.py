@@ -2,7 +2,10 @@ import logging
 import threading
 from datetime import timedelta
 
-from octopus_openfeature_provider._feature_flag_api_client import FeatureFlagApiClient
+from octopus_openfeature_provider._feature_flag_api_client import (
+    ContentHashCheckError,
+    FeatureFlagApiClient,
+)
 from octopus_openfeature_provider._feature_flag_evaluator import FeatureFlagEvaluator
 
 _logger = logging.getLogger(__name__)
@@ -13,6 +16,7 @@ _INITIAL_FETCH_FAILED = "Failed to retrieve feature manifest during initializati
 _REFRESH_FAILED = (
     "Failed to retrieve updated feature manifest. Retaining the existing evaluations."
 )
+_FETCH_WITHOUT_MANIFEST_FAILED = "Failed to retrieve feature manifest. No evaluations have been retrieved yet, defaults will be used during evaluation."
 
 
 class FeatureFlagEvaluatorCache:
@@ -123,6 +127,11 @@ class FeatureFlagEvaluatorCache:
         """Never raises. A failed refresh keeps the current evaluator, and the
         next interval tries again."""
         current_evaluator = self._evaluator
+        failed_message = (
+            _REFRESH_FAILED
+            if current_evaluator.content_hash
+            else _FETCH_WITHOUT_MANIFEST_FAILED
+        )
         try:
             if not self._api_client.have_features_changed(
                 current_evaluator.content_hash
@@ -131,13 +140,17 @@ class FeatureFlagEvaluatorCache:
 
             response = self._api_client.get_server_side_evaluations()
             if response is None:
-                _logger.error(_REFRESH_FAILED)
+                _logger.error(failed_message)
                 return
 
             evaluator = FeatureFlagEvaluator(response)
+        except ContentHashCheckError as error:
+            if not stop_requested.is_set():
+                _logger.error("%s %s", failed_message, error)
+            return
         except Exception:
             if not stop_requested.is_set():
-                _logger.exception(_REFRESH_FAILED)
+                _logger.exception(failed_message)
             return
 
         self._install_evaluator(evaluator, stop_requested)
