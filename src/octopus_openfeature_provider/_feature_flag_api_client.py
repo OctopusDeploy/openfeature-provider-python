@@ -2,6 +2,7 @@
 
 import base64
 import binascii
+import json
 import logging
 
 import httpx
@@ -19,6 +20,7 @@ from octopus_openfeature_provider._version import __version__
 _logger = logging.getLogger(__name__)
 
 EVALUATIONS_PATH = "/api/feature-flags/evaluations/v4/"
+CHECK_PATH = "/api/feature-flags/check/v4/"
 AUTHORIZATION_HEADER = "Authorization"
 OCTOPUS_CLIENT_HEADER = "X-Octopus-Client"
 RELEASE_VERSION_HEADER = "X-Release-Version"
@@ -26,8 +28,12 @@ CONTENT_HASH_HEADER = "ContentHash"
 _PROVIDER_NAME = "openfeature-provider-python"
 
 
+class ContentHashCheckError(Exception):
+    """The check endpoint didn't return a usable content hash."""
+
+
 class FeatureFlagApiClient:
-    """Retrieves evaluations from the feature flags service."""
+    """Retrieves evaluations and checks for changes from the feature flags service."""
 
     def __init__(self, configuration: OctopusFeatureConfiguration) -> None:
         self._server_url = configuration._server_url.rstrip("/")
@@ -35,12 +41,42 @@ class FeatureFlagApiClient:
 
         request_timeout = configuration.request_timeout.total_seconds()
         supplied_client = configuration.http_client
+        self._owns_client = supplied_client is None
         if supplied_client is None:
             self._client = httpx.Client(timeout=request_timeout)
             self._timeout = self._client.timeout
         else:
             self._client = supplied_client
             self._timeout = _shorter_timeout(supplied_client.timeout, request_timeout)
+
+    def open(self) -> None:
+        if self._owns_client and self._client.is_closed:
+            self._client = httpx.Client(timeout=self._timeout)
+
+    def close(self) -> None:
+        """Close the HTTP client only if the provider created it"""
+        if self._owns_client:
+            self._client.close()
+
+    def have_features_changed(self, content_hash: bytes) -> bool:
+        if not content_hash:
+            return True
+
+        response = self._client.get(
+            self._server_url + CHECK_PATH,
+            headers=self._headers,
+            timeout=self._timeout,
+        )
+
+        if not response.is_success:
+            raise ContentHashCheckError(
+                f"Feature flag check from {self._server_url} had unsuccessful status {response.status_code}"
+            )
+
+        return (
+            _parse_check_content_hash(response.content, self._server_url)
+            != content_hash
+        )
 
     def get_server_side_evaluations(self) -> EvaluationResponse | None:
         response = self._client.get(
@@ -97,6 +133,25 @@ class FeatureFlagApiClient:
                 exc_info=True,
             )
             return None
+
+
+def _parse_check_content_hash(content: bytes, server_url: str) -> bytes:
+    invalid = ContentHashCheckError(
+        f"Feature flag check from {server_url} did not return a valid content hash"
+    )
+    try:
+        body = json.loads(content)
+    except ValueError as error:
+        raise invalid from error
+
+    raw_content_hash = body.get("contentHash") if isinstance(body, dict) else None
+    if not isinstance(raw_content_hash, str) or not raw_content_hash:
+        raise invalid
+
+    try:
+        return base64.b64decode(raw_content_hash, validate=True)
+    except binascii.Error as error:
+        raise invalid from error
 
 
 def _build_headers(configuration: OctopusFeatureConfiguration) -> dict[str, str]:

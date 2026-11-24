@@ -27,7 +27,8 @@ class OctopusFeatureConfiguration:
             the response. It doesn't limit a request's total time. If
             `http_client` has its own timeouts, the shorter limit applies to
             each phase. Keep it well under `cache_duration` so a stalled
-            request can't hold up the next poll. Must be positive.
+            request can't hold up the next poll. Must be positive. Shutting the
+            provider down waits for a request in flight.
         release_version_override: Overrides the application release version
             embedded in `client_identifier`. It's sent to the feature flags
             service only when it isn't `None`.

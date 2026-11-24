@@ -5,13 +5,18 @@ from datetime import timedelta
 import httpx
 import pytest
 from fake_feature_flags_server import (
+    CHECK_PATH,
     EVALUATIONS_PATH,
     FakeFeatureFlagsServer,
+    check_body,
     configuration_for,
 )
 
 from octopus_openfeature_provider import ProductMetadata, __version__
-from octopus_openfeature_provider._feature_flag_api_client import FeatureFlagApiClient
+from octopus_openfeature_provider._feature_flag_api_client import (
+    ContentHashCheckError,
+    FeatureFlagApiClient,
+)
 
 LOGGER = "octopus_openfeature_provider"
 
@@ -244,3 +249,119 @@ def test_a_supplied_clients_shorter_timeout_wins(
 
         with pytest.raises(httpx.TimeoutException):
             client.get_server_side_evaluations()
+
+
+# Checking for changes
+
+
+def check(server: FakeFeatureFlagsServer, content_hash: bytes = b"\x01") -> bool:
+    return FeatureFlagApiClient(configuration_for(server)).have_features_changed(
+        content_hash
+    )
+
+
+def test_check_requests_the_v4_check_endpoint_with_our_headers(
+    feature_flags_server: FakeFeatureFlagsServer,
+) -> None:
+    check(feature_flags_server)
+
+    (request,) = feature_flags_server.requests
+    assert request.path == CHECK_PATH
+    assert request.header("Authorization") == "Bearer client-identifier"
+    assert request.header("X-Octopus-Client") == (
+        f"test-product openfeature-provider-python/{__version__}"
+    )
+
+
+def test_check_reports_no_change_when_the_content_hash_matches(
+    feature_flags_server: FakeFeatureFlagsServer,
+) -> None:
+    feature_flags_server.check.body = check_body(base64.b64encode(b"\x01").decode())
+
+    assert check(feature_flags_server, b"\x01") is False
+
+
+def test_check_reports_a_change_when_the_content_hash_differs(
+    feature_flags_server: FakeFeatureFlagsServer,
+) -> None:
+    feature_flags_server.check.body = check_body(base64.b64encode(b"\x02").decode())
+
+    assert check(feature_flags_server, b"\x01") is True
+
+
+def test_check_reports_a_change_without_a_request_when_there_is_no_manifest_yet(
+    feature_flags_server: FakeFeatureFlagsServer,
+) -> None:
+    assert check(feature_flags_server, b"") is True
+
+
+@pytest.mark.parametrize(
+    ("status", "body"),
+    [
+        (404, check_body(base64.b64encode(b"\x01").decode())),
+        (500, check_body(base64.b64encode(b"\x01").decode())),
+        (200, "not json"),
+        (200, "null"),
+        (200, '["AQ=="]'),
+        (200, "{}"),
+        (200, '{"contentHash": 1}'),
+        (200, '{"contentHash": ""}'),
+        (200, '{"contentHash": "not base64!"}'),
+    ],
+    ids=[
+        "not-found",
+        "server-error",
+        "invalid-json",
+        "null-body",
+        "not-an-object",
+        "missing-content-hash",
+        "non-string-content-hash",
+        "empty-content-hash",
+        "invalid-content-hash",
+    ],
+)
+def test_check_raises_for_an_unusable_response(
+    feature_flags_server: FakeFeatureFlagsServer, status: int, body: str
+) -> None:
+    feature_flags_server.check.status = status
+    feature_flags_server.check.body = body
+
+    with pytest.raises(ContentHashCheckError):
+        check(feature_flags_server)
+
+
+def test_check_raises_when_the_server_cannot_be_reached(
+    feature_flags_server: FakeFeatureFlagsServer,
+) -> None:
+    configuration = configuration_for(feature_flags_server)
+    configuration._server_url = "http://127.0.0.1:1"
+
+    with pytest.raises(httpx.ConnectError):
+        FeatureFlagApiClient(configuration).have_features_changed(b"\x01")
+
+
+# Closing
+
+
+def test_close_closes_a_client_it_created(
+    feature_flags_server: FakeFeatureFlagsServer,
+) -> None:
+    client = FeatureFlagApiClient(configuration_for(feature_flags_server))
+
+    client.close()
+    client.close()  # Calling second time to ensure close can be called multiple times without exception.
+
+    assert client._client.is_closed
+
+
+def test_close_never_closes_a_supplied_client(
+    feature_flags_server: FakeFeatureFlagsServer,
+) -> None:
+    with httpx.Client() as http_client:
+        client = FeatureFlagApiClient(
+            configuration_for(feature_flags_server, http_client=http_client)
+        )
+
+        client.close()
+
+        assert not http_client.is_closed
