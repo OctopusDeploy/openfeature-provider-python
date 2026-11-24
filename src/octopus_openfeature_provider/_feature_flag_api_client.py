@@ -33,7 +33,7 @@ class ContentHashCheckError(Exception):
 
 
 class FeatureFlagApiClient:
-    """Retrieves evaluations and checkes for changes from the feature flags service."""
+    """Retrieves evaluations and checks for changes from the feature flags service."""
 
     def __init__(self, configuration: OctopusFeatureConfiguration) -> None:
         self._server_url = configuration._server_url.rstrip("/")
