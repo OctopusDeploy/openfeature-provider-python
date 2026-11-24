@@ -10,7 +10,9 @@ _logger = logging.getLogger(__name__)
 POLLING_THREAD_NAME = "octopus-openfeature-provider-polling"
 
 _INITIAL_FETCH_FAILED = "Failed to retrieve feature manifest during initialization. Falling back to no evaluations, defaults will be used during evaluation."
-_REFRESH_FAILED = "Failed to retrieve updated feature manifest. Retaining the existing evaluations."
+_REFRESH_FAILED = (
+    "Failed to retrieve updated feature manifest. Retaining the existing evaluations."
+)
 
 
 class FeatureFlagEvaluatorCache:

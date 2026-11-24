@@ -349,7 +349,7 @@ def test_close_closes_a_client_it_created(
     client = FeatureFlagApiClient(configuration_for(feature_flags_server))
 
     client.close()
-    client.close() # Calling second time to ensure close can be called multiple times without exception.
+    client.close()  # Calling second time to ensure close can be called multiple times without exception.
 
     assert client._client.is_closed
 
