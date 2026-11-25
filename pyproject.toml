@@ -40,6 +40,10 @@ build-backend = "uv_build"
 [tool.uv]
 exclude-newer = "2 days"
 
+[tool.uv.build-backend]
+# The specification fixtures submodule is only read by the tests
+source-exclude = ["/specification"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

@@ -2,11 +2,38 @@
 
 ## Setup
 
+Clone the repository with its submodules:
+
+```bash
+git clone --recurse-submodules https://github.com/OctopusDeploy/openfeature-provider-python.git
+```
+
+If you've already cloned it without them, fetch them now:
+
+```bash
+git submodule update --init
+```
+
 The project uses [uv](https://docs.astral.sh/uv/). Install it, then install the project and its development tools:
 
 ```bash
 uv sync
 ```
+
+## Specification fixtures
+
+`specification/` is a submodule of [openfeature-provider-specification](https://github.com/OctopusDeploy/openfeature-provider-specification), which holds the fixtures every Octopus provider runs. `tests/test_specification_fixtures.py` runs every case in `specification/Fixtures/*.json` through the real provider and the OpenFeature SDK, against a fake feature flags server, as part of `uv run pytest`. Each test is named `<fixture file> - <case description>`.
+
+The test run fails if the submodule isn't checked out, so the fixtures can't be skipped by accident.
+
+To pick up new fixtures, move the submodule to the specification repository's latest commit and commit the result:
+
+```bash
+git submodule update --remote specification
+git add specification
+```
+
+When a fixture fails, fix the evaluator or the provider, not the test runner. If a fixture itself is wrong, fix it in the specification repository so every provider gets the change.
 
 ## Running the checks
 

@@ -33,6 +33,8 @@ from octopus_openfeature_provider._feature_flag_evaluator_cache import (
 )
 from octopus_openfeature_provider._octopus_feature_provider import MAX_CACHE_DURATION
 
+pytestmark = pytest.mark.usefixtures("reset_the_sdk")
+
 MANIFEST = """
 [
     { "slug": "enabled-feature", "value": true, "reason": "The flag is enabled for this environment." },
@@ -63,12 +65,6 @@ def new_configuration() -> OctopusFeatureConfiguration:
 @pytest.fixture
 def provider() -> OctopusFeatureProvider:
     return OctopusFeatureProvider(new_configuration())
-
-
-@pytest.fixture(autouse=True)
-def reset_the_sdk() -> Iterator[None]:
-    yield
-    api.shutdown()
 
 
 def client_for(server: FakeFeatureFlagsServer, **options: Any) -> OpenFeatureClient:
