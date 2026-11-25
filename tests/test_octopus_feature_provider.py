@@ -19,7 +19,7 @@ from openfeature import api
 from openfeature.client import OpenFeatureClient
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.event import EventDetails, ProviderEvent
-from openfeature.exception import ErrorCode, FlagNotFoundError
+from openfeature.exception import ErrorCode, ProviderNotReadyError
 from openfeature.flag_evaluation import Reason
 from openfeature.provider import AbstractProvider, ProviderStatus
 
@@ -31,9 +31,14 @@ from octopus_openfeature_provider import (
 from octopus_openfeature_provider._feature_flag_evaluator_cache import (
     POLLING_THREAD_NAME,
 )
-from octopus_openfeature_provider._octopus_feature_provider import MAX_CACHE_DURATION
+from octopus_openfeature_provider._octopus_feature_provider import (
+    MAX_CACHE_DURATION,
+    PROVIDER_NOT_READY_MESSAGE,
+)
 
 pytestmark = pytest.mark.usefixtures("reset_the_sdk")
+
+LOGGER = "octopus_openfeature_provider"
 
 MANIFEST = """
 [
@@ -136,22 +141,30 @@ def test_set_provider_initializes_in_the_background(
     assert client.get_boolean_value("enabled-feature", False) is True
 
 
-def test_when_the_fetch_fails_the_provider_is_ready_and_every_flag_is_missing(
+# A 404 is what a wrong client identifier gets.
+@pytest.mark.parametrize("status", [404, 500])
+def test_when_the_fetch_fails_every_evaluation_reports_provider_not_ready(
     feature_flags_server: FakeFeatureFlagsServer,
+    caplog: pytest.LogCaptureFixture,
+    status: int,
 ) -> None:
     feature_flags_server.evaluations.body = MANIFEST
-    feature_flags_server.evaluations.status = 500
+    feature_flags_server.evaluations.status = status
 
-    client = client_for(feature_flags_server)
+    with caplog.at_level(logging.WARNING, logger=LOGGER):
+        client = client_for(feature_flags_server)
+        details = client.get_boolean_details("enabled-feature", False)
 
     assert client.get_provider_status() == ProviderStatus.READY
-    details = client.get_boolean_details("enabled-feature", False)
     assert details.value is False
     assert details.reason == Reason.ERROR
-    assert details.error_code == ErrorCode.FLAG_NOT_FOUND
+    assert details.error_code == ErrorCode.PROVIDER_NOT_READY
+    assert details.error_message == PROVIDER_NOT_READY_MESSAGE
+    # The slug isn't the problem, so the log doesn't blame it.
+    assert not any("slug" in record.getMessage() for record in caplog.records)
 
 
-def test_when_the_server_is_unreachable_the_provider_is_ready_and_every_flag_is_missing(
+def test_when_the_server_is_unreachable_every_evaluation_reports_provider_not_ready(
     feature_flags_server: FakeFeatureFlagsServer,
 ) -> None:
     # Nothing listens on port 1, so the request raises rather than returning
@@ -163,6 +176,27 @@ def test_when_the_server_is_unreachable_the_provider_is_ready_and_every_flag_is_
     assert client.get_provider_status() == ProviderStatus.READY
     details = client.get_boolean_details("enabled-feature", False)
     assert details.reason == Reason.ERROR
+    assert details.error_code == ErrorCode.PROVIDER_NOT_READY
+
+
+def test_evaluation_before_initialization_raises_provider_not_ready(
+    provider: OctopusFeatureProvider,
+) -> None:
+    with pytest.raises(ProviderNotReadyError) as raised:
+        provider.resolve_boolean_details("enabled-feature", False)
+
+    assert raised.value.error_message == PROVIDER_NOT_READY_MESSAGE
+
+
+def test_a_fetched_manifest_with_no_flags_reports_flag_not_found(
+    feature_flags_server: FakeFeatureFlagsServer,
+) -> None:
+    feature_flags_server.evaluations.body = "[]"
+
+    details = client_for(feature_flags_server).get_boolean_details(
+        "enabled-feature", False
+    )
+
     assert details.error_code == ErrorCode.FLAG_NOT_FOUND
 
 
@@ -173,7 +207,6 @@ CHANGED_MANIFEST = (
     '[{ "slug": "enabled-feature", "value": false, "reason": "Changed." }]'
 )
 CHANGED_CONTENT_HASH = base64.b64encode(b"\x02").decode()
-LOGGER = "octopus_openfeature_provider"
 
 
 def wait_until(condition: Callable[[], bool], timeout: float = 5) -> None:
@@ -427,7 +460,7 @@ def test_initializing_again_discards_evaluations_from_the_earlier_start(
 
     polling_provider.initialize(EvaluationContext())
 
-    with pytest.raises(FlagNotFoundError):
+    with pytest.raises(ProviderNotReadyError):
         polling_provider.resolve_boolean_details("enabled-feature", False)
 
 
@@ -473,7 +506,7 @@ def test_shutdown_during_initialization_does_not_start_polling(
     initializing.join(timeout=2)
     assert not initializing.is_alive()
     assert polling_threads() == []
-    with pytest.raises(FlagNotFoundError):
+    with pytest.raises(ProviderNotReadyError):
         polling_provider.resolve_boolean_details("enabled-feature", False)
 
 
@@ -606,6 +639,22 @@ def test_non_boolean_evaluation_of_a_flag_returns_the_default_with_type_mismatch
 
 
 @NON_BOOLEAN_EVALUATIONS
+def test_non_boolean_evaluation_before_a_successful_fetch_reports_provider_not_ready(
+    feature_flags_server: FakeFeatureFlagsServer,
+    evaluate: Callable[[Any, str, Any], Any],
+    default_value: object,
+) -> None:
+    feature_flags_server.evaluations.status = 500
+
+    details = evaluate(
+        client_for(feature_flags_server), "enabled-feature", default_value
+    )
+
+    assert details.value == default_value
+    assert details.error_code == ErrorCode.PROVIDER_NOT_READY
+
+
+@NON_BOOLEAN_EVALUATIONS
 def test_non_boolean_evaluation_of_a_missing_flag_returns_the_default_with_flag_not_found(
     feature_flags_server: FakeFeatureFlagsServer,
     evaluate: Callable[[Any, str, Any], Any],
@@ -710,4 +759,75 @@ def test_rejects_a_duration_that_is_not_a_timedelta(field: str) -> None:
     setattr(configuration, field, 60)
 
     with pytest.raises(TypeError, match=field):
+        OctopusFeatureProvider(configuration)
+
+
+@pytest.mark.parametrize("value", ["client-identifier\n", "  client-identifier\r\n"])
+def test_strips_whitespace_around_the_client_identifier(value: str) -> None:
+    configuration = new_configuration()
+    configuration.client_identifier = value
+
+    provider = OctopusFeatureProvider(configuration)
+
+    assert provider._configuration.client_identifier == "client-identifier"
+
+
+def test_strips_whitespace_around_the_release_version_override() -> None:
+    configuration = new_configuration()
+    configuration.release_version_override = "2026.1.0\n"
+
+    provider = OctopusFeatureProvider(configuration)
+
+    assert provider._configuration.release_version_override == "2026.1.0"
+
+
+def test_sends_the_stripped_values_in_its_requests(
+    feature_flags_server: FakeFeatureFlagsServer,
+) -> None:
+    feature_flags_server.evaluations.body = MANIFEST
+    configuration = configuration_for(
+        feature_flags_server, release_version_override="2026.1.0\n"
+    )
+    configuration.client_identifier += "\n"
+
+    api.set_provider_and_wait(OctopusFeatureProvider(configuration))
+
+    assert api.get_client().get_boolean_value("enabled-feature", False) is True
+    (request,) = feature_flags_server.requests_to(EVALUATIONS_PATH)
+    assert request.header("Authorization") == "Bearer client-identifier"
+    assert request.header("X-Release-Version") == "2026.1.0"
+
+
+@pytest.mark.parametrize("field", ["client_identifier", "release_version_override"])
+@pytest.mark.parametrize("value", ["line\nbreak", "tab\tinside", "caf\u00e9"])
+def test_rejects_a_header_value_with_invalid_characters(field: str, value: str) -> None:
+    configuration = new_configuration()
+    setattr(configuration, field, value)
+
+    with pytest.raises(ValueError, match=field):
+        OctopusFeatureProvider(configuration)
+
+
+@pytest.mark.parametrize("value", ["", " \n"])
+def test_rejects_an_empty_release_version_override(value: str) -> None:
+    configuration = new_configuration()
+    configuration.release_version_override = value
+
+    with pytest.raises(ValueError, match="release_version_override"):
+        OctopusFeatureProvider(configuration)
+
+
+def test_rejects_a_release_version_override_that_is_not_a_string() -> None:
+    configuration = new_configuration()
+    configuration.release_version_override = 2026  # type: ignore[assignment]
+
+    with pytest.raises(TypeError, match="release_version_override"):
+        OctopusFeatureProvider(configuration)
+
+
+def test_rejects_an_async_http_client() -> None:
+    configuration = new_configuration()
+    configuration.http_client = httpx.AsyncClient()  # type: ignore[assignment]
+
+    with pytest.raises(TypeError, match="http_client"):
         OctopusFeatureProvider(configuration)
