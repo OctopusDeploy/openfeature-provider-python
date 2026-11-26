@@ -1,6 +1,6 @@
 # Releasing
 
-Versioning and publishing are automated. Release Please owns the version and changelog, GitHub Actions builds the sdist and wheel and pushes them to Octopus Deploy, and Octopus Deploy publishes release versions to PyPI.
+Versioning and publishing are automated. Release Please owns the version and changelog, GitHub Actions builds the sdist and wheel, pushes them to Octopus Deploy and creates a release there, and Octopus Deploy publishes release versions to PyPI.
 
 ## Pipeline
 
@@ -19,10 +19,10 @@ flowchart TD
     CHK --> ACTR["Build + bundle sdist and wheel<br/>(release version)"]
     CI --> ACTP["Build + bundle sdist and wheel<br/>(prerelease version: ci / pr.N.branch)"]
 
-    ACTR --> OCT["Octopus Deploy"]
-    ACTP --> OCT
-    OCT -->|"release versions"| PUB["PyPI"]
-    OCT -->|"every version"| TEST["TestPyPI"]
+    ACTR -->|"push + create release"| OCT["Octopus Deploy"]
+    ACTP -->|"push + create release"| OCT
+    OCT -->|"Release channel, Production"| PUB["PyPI"]
+    OCT -->|"every release, Development"| TEST["TestPyPI"]
 
     classDef gh fill:#eef,stroke:#557;
     classDef oct fill:#efe,stroke:#575;
@@ -30,8 +30,9 @@ flowchart TD
     class OCT oct;
 ```
 
-- **Release builds** run after a Release Please PR is merged. `release.yml` runs the `main.yml` checks on the release commit, since the build action doesn't test, then builds the release version and pushes the bundle to Octopus Deploy.
+- **Release builds** run after a Release Please PR is merged. `release.yml` runs the `main.yml` checks on the release commit, since the build action doesn't test, then builds the release version, pushes the bundle to Octopus Deploy and creates a release.
 - **Prerelease builds** run on pushes to `main`, the nightly schedule and manual runs on `main` (all tagged `ci`), and on PRs (`pr.<number>.<branch>`). Fork, Dependabot and Renovate builds aren't pushed. Fork builds upload the sdist and wheel as a workflow artifact instead.
+- Every pushed build creates a release in the **OpenFeature Python Provider** project, numbered with the bundle version. The build doesn't choose the channel, so Octopus picks it from the version: prereleases go to Pre-release (Development only) and release versions to Release (Development, then Production).
 - The release workflow can also be run manually from the Actions tab to re-run Release Please without pushing a commit, for example after a failed run. Manual runs only do anything on `main`.
 
 ## Versioning
@@ -49,6 +50,6 @@ flowchart TD
 
 1. Merge changes to `main` using a [conventional commit message](https://www.conventionalcommits.org/).
 2. Release Please opens or updates a **release PR** that bumps the version and updates the changelog.
-3. Merge the release PR. The tag, GitHub release, checks, build and push to Octopus Deploy run automatically.
+3. Merge the release PR. The tag, GitHub release, checks, build, push to Octopus Deploy and Octopus release run automatically.
 4. Promote the release to Production in Octopus Deploy to publish it to PyPI.
 5. Confirm the version on [PyPI](https://pypi.org/project/octopus-openfeature-provider/#history).
