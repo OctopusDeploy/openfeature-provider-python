@@ -117,7 +117,7 @@ class FeatureFlagEvaluatorCache:
             return
 
         # setdefault returns this token only to the call that stored it, to ensure
-        # a log per process. 
+        # a log per process.
         token = object()
         if self._fork_warned_pids.setdefault(pid, token) is token:
             _logger.warning(_FORKED_WHILE_POLLING)

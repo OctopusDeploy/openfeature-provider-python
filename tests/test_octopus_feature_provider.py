@@ -504,6 +504,7 @@ def test_shutdown_never_closes_a_supplied_http_client(
 
 # Forking
 
+
 def test_evaluating_in_a_process_forked_while_polling_warns_once(
     polling_provider: OctopusFeatureProvider,
     caplog: pytest.LogCaptureFixture,
