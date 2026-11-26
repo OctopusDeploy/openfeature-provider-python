@@ -31,7 +31,7 @@ flowchart TD
 ```
 
 - **Release builds** run after a Release Please PR is merged. `release.yml` runs the `main.yml` checks on the release commit, since the build action doesn't test, then builds the release version and pushes the bundle to Octopus Deploy.
-- **Prerelease builds** run on pushes to `main`, the nightly schedule and manual dispatches (all tagged `ci`), and on PRs (`pr.<number>.<branch>`). Fork, Dependabot and Renovate builds aren't pushed. Fork builds upload the sdist and wheel as a workflow artifact instead.
+- **Prerelease builds** run on pushes to `main`, the nightly schedule and manual runs on `main` (all tagged `ci`), and on PRs (`pr.<number>.<branch>`). Fork, Dependabot and Renovate builds aren't pushed. Fork builds upload the sdist and wheel as a workflow artifact instead.
 - The release workflow can also be run manually from the Actions tab to re-run Release Please without pushing a commit, for example after a failed run. Manual runs only do anything on `main`.
 
 ## Versioning

@@ -7,6 +7,13 @@ on:
 
   workflow_dispatch:
 
+# Queue runs rather than running them side by side, so two runs can't both act
+# on the same merged release PR, and rather than cancelling, so a run that has
+# already tagged a release still publishes it
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
