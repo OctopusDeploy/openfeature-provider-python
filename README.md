@@ -54,6 +54,33 @@ Call `api.shutdown()` when your application stops, so the provider releases its 
 
 For more on evaluating flags, see the [OpenFeature evaluation API documentation](https://openfeature.dev/docs/reference/concepts/evaluation-api/).
 
+### Forked processes
+
+The provider checks for flag changes on a background thread, and a forked process doesn't get a copy of that thread. If you set the provider and then fork, flags in the forked processes stop updating. Instead, create and set a new provider in each process after it's forked:
+
+```python
+from openfeature import api
+
+from octopus_openfeature_provider import (
+    OctopusFeatureConfiguration,
+    OctopusFeatureProvider,
+    ProductMetadata,
+)
+
+
+# Call this from your server's per-worker startup hook, which runs after the fork.
+def set_up_feature_flags() -> None:
+    provider = OctopusFeatureProvider(
+        OctopusFeatureConfiguration(
+            client_identifier="YourClientIdentifier",
+            product_metadata=ProductMetadata("YourProductName", "1.0.0"),
+        )
+    )
+    api.set_provider_and_wait(provider)
+```
+
+If a process is forked while the provider is polling for changes, the provider logs a warning the first time that process evaluates a flag.
+
 ## Configuration
 
 `OctopusFeatureConfiguration` takes these arguments. Pass everything after `product_metadata` by keyword.

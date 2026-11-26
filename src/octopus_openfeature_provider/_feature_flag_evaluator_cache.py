@@ -1,4 +1,5 @@
 import logging
+import os
 import threading
 from datetime import timedelta
 
@@ -17,6 +18,7 @@ _REFRESH_FAILED = (
     "Failed to retrieve updated feature manifest. Retaining the existing evaluations."
 )
 _FETCH_WITHOUT_MANIFEST_FAILED = "Failed to retrieve feature manifest. No evaluations have been retrieved yet, defaults will be used during evaluation."
+_FORKED_WHILE_POLLING = "This process was forked while the provider was polling for flag changes on a background thread. Polling doesn't run in a forked process, so flags won't be updated in this process. Create and set a new provider after forking."
 
 
 class FeatureFlagEvaluatorCache:
@@ -44,8 +46,16 @@ class FeatureFlagEvaluatorCache:
         # it's been stopped, and won't install evaluations or outlive shutdown.
         self._stop_requested = threading.Event()
         self._polling_thread: threading.Thread | None = None
+        # The process ID the polling thread runs in, or None when it isn't
+        # running. A process forked from it gets a copy of the cache but not
+        # the thread, so evaluations compare this with the current process to
+        # warn that flags won't update.
+        self._polling_pid: int | None = None
+        # The processes that have logged that warning. It's keyed by process.
+        self._fork_warned_pids: dict[int, object] = {}
 
     def get_evaluator(self) -> FeatureFlagEvaluator:
+        self._check_process_forked()
         return self._evaluator
 
     def initialize(self) -> None:
@@ -74,6 +84,7 @@ class FeatureFlagEvaluatorCache:
                 return
             polling_thread.start()
             self._polling_thread = polling_thread
+            self._polling_pid = os.getpid()
 
         initial_fetch_done.wait()
 
@@ -96,7 +107,20 @@ class FeatureFlagEvaluatorCache:
         self._stop_requested.set()
         polling_thread = self._polling_thread
         self._polling_thread = None
+        self._polling_pid = None
         return polling_thread
+
+    def _check_process_forked(self) -> None:
+        polling_pid = self._polling_pid
+        pid = os.getpid()
+        if polling_pid is None or polling_pid == pid:
+            return
+
+        # setdefault returns this token only to the call that stored it, to ensure
+        # a log per process.
+        token = object()
+        if self._fork_warned_pids.setdefault(pid, token) is token:
+            _logger.warning(_FORKED_WHILE_POLLING)
 
     def _poll(
         self, stop_requested: threading.Event, initial_fetch_done: threading.Event

@@ -1,5 +1,6 @@
 import base64
 import logging
+import os
 import threading
 import time
 from collections.abc import Callable, Iterator
@@ -456,7 +457,7 @@ def test_shutdown_waits_for_a_refresh_in_flight(
     assert polling_threads() == []
 
 
-def test_shutdown_during_initialization_does_not_start_polling(
+def test_shutdown_during_initialization_discards_the_initial_fetch_and_stops_polling(
     feature_flags_server: FakeFeatureFlagsServer,
     polling_provider: OctopusFeatureProvider,
 ) -> None:
@@ -499,6 +500,30 @@ def test_shutdown_never_closes_a_supplied_http_client(
         provider.shutdown()
 
         assert not http_client.is_closed
+
+
+# Forking
+
+
+def test_evaluating_in_a_process_forked_while_polling_warns_once(
+    polling_provider: OctopusFeatureProvider,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    polling_provider.initialize(EvaluationContext())
+
+    with caplog.at_level(logging.WARNING, logger=LOGGER):
+        polling_provider._evaluator_cache.get_evaluator()
+        assert caplog.messages == []
+
+        # Look like a process forked from this one.
+        forked_pid = os.getpid() + 1
+        monkeypatch.setattr(os, "getpid", lambda: forked_pid)
+        polling_provider._evaluator_cache.get_evaluator()
+        polling_provider._evaluator_cache.get_evaluator()
+
+    [message] = caplog.messages
+    assert message.startswith("This process was forked while the provider was polling")
 
 
 # Boolean evaluation
