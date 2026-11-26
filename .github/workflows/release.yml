@@ -1,0 +1,64 @@
+name: Release build
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  OCTOPUS_SPACE: "Developer Experience"
+
+jobs:
+  release-please:
+    # A manual run from another branch would cut the release from that branch
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
+        id: release
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          target-branch: main
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+
+  # The build action doesn't test, so run the CI checks on the release commit first
+  checks:
+    needs: release-please
+    if: ${{ fromJSON(needs.release-please.outputs.release_created || false) }}
+    permissions:
+      contents: read
+      # Not used, as the CI build isn't published, but a called workflow can't
+      # ask for more than its caller grants
+      id-token: write
+    uses: ./.github/workflows/main.yml
+    with:
+      checks-only: true
+
+  build-and-publish-release:
+    needs: [release-please, checks]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # Required to obtain the ID token from GitHub Actions
+      contents: read
+    if: ${{ fromJSON(needs.release-please.outputs.release_created || false) }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build, Pack, and Deploy (Release)
+        uses: ./.github/actions/build-pack-deploy
+        with:
+          octopus-url: ${{ secrets.OCTOPUS_URL }}

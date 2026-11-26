@@ -119,3 +119,9 @@ Work through these in order, and stop at the first one that works.
 ## PR titles
 
 PR titles must follow [Conventional Commits](https://www.conventionalcommits.org/), for example `feat: add flag caching`. Release Please uses them to work out the next version and write the changelog.
+
+Don't edit the version in `pyproject.toml`, `uv.lock` or `_version.py`, or `CHANGELOG.md`, by hand. Release Please manages them.
+
+## Releases
+
+Maintainers handle releases. If you're curious how it works, see [RELEASING.md](RELEASING.md).

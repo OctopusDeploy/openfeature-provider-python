@@ -15,6 +15,14 @@ on:
 
   workflow_dispatch:
 
+  # release.yml runs the checks on the release commit before publishing it
+  workflow_call:
+    inputs:
+      checks-only:
+        description: "Run the checks without publishing a CI build"
+        type: boolean
+        default: false
+
 permissions:
   contents: read
 
@@ -92,6 +100,8 @@ jobs:
   build-and-publish:
     # The action doesn't test, so only publish what passed every Python version and lint
     needs: [test, lint]
+    # inputs is empty outside workflow_call, so this only skips release.yml's call
+    if: ${{ !inputs.checks-only }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write # Required to obtain the ID token from GitHub Actions
