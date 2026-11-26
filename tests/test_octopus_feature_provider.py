@@ -457,7 +457,7 @@ def test_shutdown_waits_for_a_refresh_in_flight(
     assert polling_threads() == []
 
 
-def test_shutdown_during_initialization_does_not_start_polling(
+def test_shutdown_during_initialization_discards_the_initial_fetch_and_stops_polling(
     feature_flags_server: FakeFeatureFlagsServer,
     polling_provider: OctopusFeatureProvider,
 ) -> None:
