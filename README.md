@@ -50,6 +50,8 @@ if client.get_boolean_value("to-the-moon-feature", False):
 
 Octopus feature flags are boolean, so evaluate them with `get_boolean_value` or `get_boolean_details`. Evaluating a flag as a string, integer, float or object returns your default value with an error code.
 
+If the provider can't fetch your flags, for example because the client identifier is wrong or Octopus is unreachable, it still reports itself ready, and keeps trying every `cache_duration`. Until a fetch succeeds, every evaluation returns your default value with the `PROVIDER_NOT_READY` error code.
+
 Call `api.shutdown()` when your application stops, so the provider releases its resources.
 
 For more on evaluating flags, see the [OpenFeature evaluation API documentation](https://openfeature.dev/docs/reference/concepts/evaluation-api/).
@@ -92,9 +94,9 @@ If a process is forked while the provider is polling for changes, the provider l
 | `cache_duration` | No | A `timedelta` for how often the provider checks for changed flags. Defaults to one minute. Must be positive. |
 | `request_timeout` | No | A `timedelta` for how long a request to Octopus may take in total before it's abandoned. Defaults to 10 seconds. Must be positive. |
 | `release_version_override` | No | Overrides the release version embedded in the client identifier. |
-| `http_client` | No | An `httpx.Client` for requests to Octopus, for example to configure a proxy, TLS or instrumentation. The provider never closes a client you supply. If the client has its own timeouts, the shorter of those and `request_timeout` applies. By default, the provider creates and manages its own client. |
+| `http_client` | No | An `httpx.Client` (not an `httpx.AsyncClient`) for requests to Octopus, for example to configure a proxy, TLS or instrumentation. The provider never closes a client you supply. If the client has its own timeouts, the shorter of those and `request_timeout` applies. By default, the provider creates and manages its own client. |
 
-The provider takes a copy of the configuration when it's created, so later changes to the configuration don't affect it. It raises `ValueError` or `TypeError` if `client_identifier` is empty or isn't a string, or if `cache_duration` or `request_timeout` isn't a positive `timedelta`. `ProductMetadata` removes characters that aren't valid in an HTTP header token, and raises `ValueError` if the name, or a version you supply, has none left.
+The provider takes a copy of the configuration when it's created, so later changes to the configuration don't affect it. It removes leading and trailing whitespace, such as a newline from a file or mounted secret, from `client_identifier` and `release_version_override`. It raises `ValueError` or `TypeError` if either of those is empty, isn't a string, or contains characters other than printable ASCII, if `cache_duration` or `request_timeout` isn't a positive `timedelta`, or if `http_client` isn't an `httpx.Client`. `ProductMetadata` removes characters that aren't valid in an HTTP header token, and raises `ValueError` if the name, or a version you supply, has none left.
 
 ### Logging
 

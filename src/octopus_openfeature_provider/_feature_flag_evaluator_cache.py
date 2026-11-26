@@ -25,8 +25,9 @@ class FeatureFlagEvaluatorCache:
     """Holds the evaluator the provider resolves flags against, and keeps it
     updated by polling the feature flags service.
 
-    Until a fetch succeeds it holds an empty evaluator, so every flag is
-    missing. A failed refresh keeps the last good evaluator.
+    Until a fetch succeeds it holds an empty evaluator with no content hash,
+    which the provider treats as not ready. A failed refresh keeps the last
+    good evaluator.
     """
 
     def __init__(
