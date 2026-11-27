@@ -1,5 +1,5 @@
 name: "Build, Pack, and Deploy"
-description: "Builds the provider, bundles the sdist and wheel into a zip, then pushes it to Octopus. Run the tests in a job this one needs."
+description: "Builds the provider, bundles the sdist and wheel into a zip, pushes it to Octopus, then creates a release for it. Run the tests in a job this one needs."
 
 inputs:
   prerelease-tag:
@@ -127,3 +127,18 @@ runs:
       with:
         packages: |
           ${{ steps.bundle.outputs.path }}
+        # Every build has its own version, so this only matters when a job is
+        # re-run, for example after creating the release failed. Release builds
+        # come from the tagged commit, so the bundle already pushed is the same.
+        overwrite_mode: IgnoreIfExists
+
+    # The channel isn't set, so Octopus picks it from the version: prereleases
+    # go to Pre-release and release versions to Release
+    - name: Create Release in Octopus
+      if: github.event.pull_request.head.repo.fork != true && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'renovate/')
+      uses: OctopusDeploy/create-release-action@v4
+      with:
+        project: "OpenFeature Python Provider"
+        release_number: ${{ steps.version.outputs.bundle }}
+        packages: |
+          octopus-openfeature-provider-python:${{ steps.version.outputs.bundle }}
