@@ -15,13 +15,17 @@ on:
 
   workflow_dispatch:
 
-  # release.yml runs the checks on the release commit before publishing it
+  # release.yml runs the checks on the tagged release commit before publishing it
   workflow_call:
     inputs:
       checks-only:
         description: "Run the checks without publishing a CI build"
         type: boolean
         default: false
+      ref:
+        description: "The ref the checks run on. If empty, the commit that started the run."
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -42,6 +46,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          # inputs is empty outside workflow_call, and checkout treats an empty ref as the default
+          ref: ${{ inputs.ref }}
           # The specification fixtures the tests run
           submodules: true
 
@@ -63,6 +69,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
@@ -88,6 +96,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 

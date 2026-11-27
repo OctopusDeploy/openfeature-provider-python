@@ -40,8 +40,11 @@ jobs:
 
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
 
-  # The build action doesn't test, so run the CI checks on the release commit first
+  # The build action doesn't test, so run the CI checks on the release commit first.
+  # The checks and the build check out the tag, not the commit that started the
+  # run: a queued run, or a manual one, can tag a release PR merged before it.
   checks:
     needs: release-please
     if: ${{ fromJSON(needs.release-please.outputs.release_created || false) }}
@@ -53,6 +56,7 @@ jobs:
     uses: ./.github/workflows/main.yml
     with:
       checks-only: true
+      ref: ${{ needs.release-please.outputs.tag_name }}
 
   build-and-publish-release:
     needs: [release-please, checks]
@@ -64,6 +68,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
 
       - name: Build, Pack, and Deploy (Release)
         uses: ./.github/actions/build-pack-deploy
