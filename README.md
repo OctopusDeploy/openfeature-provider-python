@@ -7,8 +7,6 @@ The Octopus Deploy Python [OpenFeature provider](https://openfeature.dev/docs/re
 
 The provider is for server-side applications, such as web services, workers and command-line tools. It isn't intended for clients such as desktop applications.
 
-> **Note:** This provider is under active development and isn't ready for use yet. It isn't published to PyPI, and it doesn't fetch flags from Octopus yet, so every evaluation returns your default value. This README describes how the provider will work at its first release. Until then, the API may change without notice.
-
 ## Supported Python versions
 
 The provider supports Python 3.11 and later. It's tested on every maintained CPython version.

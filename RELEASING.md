@@ -32,6 +32,7 @@ flowchart TD
 
 - **Release builds** run after a Release Please PR is merged. `release.yml` runs the `main.yml` checks on the tagged release commit, since the build action doesn't test, then builds the release version, pushes the bundle to Octopus Deploy and creates a release.
 - **Prerelease builds** run on pushes to `main`, the nightly schedule and manual runs on `main` (all tagged `ci`), and on PRs (`pr.<number>.<branch>`). Fork, Dependabot and Renovate builds aren't pushed. Fork builds upload the sdist and wheel as a workflow artifact instead.
+- Prerelease sdists and wheels are versioned `<next patch>.dev<YYYYMMDDHHMMSS>`, for example `0.1.1.dev20261127010605`. PEP 440 treats `.dev` versions as prereleases, so pip only installs them with `--pre` or an exact version. They have no local segment (`+...`) because PyPI and TestPyPI reject them, so the tag and commit are only in the bundle version and the Octopus release number.
 - Every pushed build creates a release in the **OpenFeature Python Provider** project, numbered with the bundle version. The build doesn't choose the channel, so Octopus picks it from the version: prereleases go to Pre-release (Development only) and release versions to Release (Development, then Production).
 - The release workflow can also be run manually from the Actions tab to re-run Release Please without pushing a commit, for example after a failed run. Manual runs only do anything on `main`.
 
@@ -44,6 +45,8 @@ flowchart TD
   - `pyproject.toml`, at `$.project.version`.
   - `uv.lock`, which records the project's own version too. Without it, `uv lock --check` fails on the release PR. Release Please's TOML parser wraps each value in an object, so the JSONPath filter compares `@.name.value`, not `@.name`.
 - `tests/test_package.py` checks `_version.py` matches the package metadata, so a version file Release Please misses fails the release PR.
+- Every release, prerelease or not, is published to [TestPyPI](https://test.pypi.org/project/octopus-openfeature-provider/) when it deploys to Development. Only the Release channel reaches Production and PyPI.
+- Octopus Deploy uploads with `uv publish --check-url`, so redeploying a release skips files already on the index with the same contents. A file with the same name but different contents fails the deployment.
 - **A published version is permanent.** PyPI never accepts a version again once it's been uploaded, even if it's deleted. Check the version in the release PR before merging.
 
 ## Cutting a release

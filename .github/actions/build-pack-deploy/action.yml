@@ -21,11 +21,13 @@ runs:
     # Octopus's built-in feed needs a SemVer version, which PEP 440 prerelease
     # versions aren't, so prereleases carry two versions:
     #   bundle (SemVer): 1.2.4-pr.12.my-branch.20261119T204026.sha-0123abcde
-    #   sdist and wheel (PEP 440): 1.2.4.dev20261119204026+pr.12.my.branch.0123abcde
+    #   sdist and wheel (PEP 440): 1.2.4.dev20261119204026
     # pyproject.toml holds the last release (1.2.3 here), so prereleases are
     # built on the next patch version, to sort after the release they follow.
     # The SHA is prefixed in the SemVer version because an all-digit identifier
-    # with a leading zero isn't valid SemVer. Release builds use the version in
+    # with a leading zero isn't valid SemVer. The PEP 440 version has no local
+    # segment (+...), because PyPI and TestPyPI reject them, so the tag and SHA
+    # are only in the bundle version. Release builds use the version in
     # pyproject.toml for both.
     - name: Compute version
       id: version
@@ -48,9 +50,7 @@ runs:
           TIMESTAMP=$(date -u +%Y%m%dT%H%M%S)
           SHA=${GITHUB_SHA:0:9}
           BUNDLE_VERSION="${NEXT}-${PRERELEASE_TAG}.${TIMESTAMP}.sha-${SHA}"
-          # PEP 440 local version segments are [a-z0-9] separated by single dots
-          LOCAL=$(echo "$PRERELEASE_TAG" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/./g; s/^\.+|\.+$//g')
-          PACKAGE_VERSION="${NEXT}.dev${TIMESTAMP/T/}+${LOCAL}.${SHA}"
+          PACKAGE_VERSION="${NEXT}.dev${TIMESTAMP/T/}"
         else
           BUNDLE_VERSION="$BASE"
           PACKAGE_VERSION="$BASE"
@@ -69,7 +69,7 @@ runs:
       # --frozen leaves uv.lock alone; the build doesn't read it
       run: |
         uv version "$PACKAGE_VERSION" --frozen
-        # uv writes the normalised form (e.g. local segment 007 becomes 7), which is what the build uses
+        # uv writes the normalised form, which is what the build uses
         PACKAGE_VERSION=$(uv version --short)
         VERSION_FILE=src/octopus_openfeature_provider/_version.py
         sed -i -E "s/^__version__ = \"[^\"]*\"(  # x-release-please-version)$/__version__ = \"$PACKAGE_VERSION\"\1/" "$VERSION_FILE"
